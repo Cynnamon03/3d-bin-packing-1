@@ -238,9 +238,14 @@ export default function BatchRunner() {
           bins:     msg.bins_used,
           lb:       msg.lower_bound,
           score:    msg.composite_score,
+          su:       msg.metrics ? msg.metrics.M1_space_utilization_pct      : null,
+          csr:      msg.metrics ? msg.metrics.M2_constraint_satisfaction_pct : null,
+          et:       msg.metrics ? msg.metrics.M3_execution_time_ms          : null,
         }]);
         addLog(
-          `  ✔ Done: ${msg.bins_used} bins (LB ${msg.lower_bound})`,
+          `  ✔ Done: ${msg.bins_used} bins (LB ${msg.lower_bound})` +
+          (msg.metrics ? `  ·  SU ${msg.metrics.M1_space_utilization_pct}%`
+                       + `  CSR ${msg.metrics.M2_constraint_satisfaction_pct}%` : ''),
           'complete'
         );
         break;
@@ -427,6 +432,9 @@ export default function BatchRunner() {
                   <th style={{ padding: '6px 12px' }}>Bins</th>
                   <th style={{ padding: '6px 12px' }}>LB</th>
                   <th style={{ padding: '6px 12px' }}>Score</th>
+                  <th style={{ padding: '6px 12px' }}>M-1 SU</th>
+                  <th style={{ padding: '6px 12px' }}>M-2 CSR</th>
+                  <th style={{ padding: '6px 12px' }}>M-3 ET</th>
                 </tr>
               </thead>
               <tbody>
@@ -442,6 +450,17 @@ export default function BatchRunner() {
                     <td style={{ padding: '5px 12px', fontWeight: 700 }}>{row.bins}</td>
                     <td style={{ padding: '5px 12px', color: '#64748b' }}>{row.lb}</td>
                     <td style={{ padding: '5px 12px' }}>{row.score.toFixed(3)}</td>
+                    <td style={{ padding: '5px 12px' }}>
+                      {row.su == null ? '—' : `${row.su}%`}
+                    </td>
+                    <td style={{ padding: '5px 12px',
+                                 color: row.csr == null ? '#64748b'
+                                       : row.csr >= 100 ? '#34d399' : '#f59e0b' }}>
+                      {row.csr == null ? '—' : `${row.csr}%`}
+                    </td>
+                    <td style={{ padding: '5px 12px', color: '#64748b' }}>
+                      {row.et == null ? '—' : `${Math.round(row.et)} ms`}
+                    </td>
                   </tr>
                 ))}
               </tbody>

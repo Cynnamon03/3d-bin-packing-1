@@ -19,9 +19,12 @@ import json
 import math
 import time
 import argparse
+import tracemalloc
 
 from instance_reader import load_instance
 from hd_gwo import HDGWO
+from webapp_metrics import (assign_weights, compute_weight_capacity,
+                            space_utilization, constraint_satisfaction)
 
 
 def lower_bound(items, container):
@@ -52,6 +55,12 @@ def main():
     n  = len(items)
     lb = lower_bound(items, container)
 
+    # Thesis metrics need per-item weights and a per-bin weight capacity.
+    # BR data carries no weights, so assign deterministic synthetic weights
+    # (seed fixed -> controlled variable, reproducible across runs).
+    assign_weights(items, seed=42)
+    weight_cap = compute_weight_capacity(items, container)
+
     print(f"Instance  : {args.instance_path}", file=sys.stderr, flush=True)
     print(f"Container : L={container['L']} H={container['H']} D={container['D']}",
           file=sys.stderr, flush=True)
@@ -81,7 +90,8 @@ def main():
         })
 
     # ── Run optimizer ──────────────────────────────────────────────────────────
-    _start_time = time.time()
+    tracemalloc.start()
+    _start_time = time.perf_counter()
     optimizer = HDGWO(
         items=items,
         container=container,
@@ -96,6 +106,10 @@ def main():
     )
 
     best = optimizer.run()
+    exec_time_ms = (time.perf_counter() - _start_time) * 1000.0   # M-3
+    _, peak_bytes = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    peak_mem_mb = peak_bytes / (1024 * 1024)                      # M-4
 
     # ── Build final result ─────────────────────────────────────────────────────
     packed_items = []
@@ -116,6 +130,21 @@ def main():
     items_vol    = sum(p['l'] * p['h'] * p['d'] for p in packed_items)
     vol_util_pct = round(items_vol / (best.n_bins * cap_vol) * 100, 2) if cap_vol > 0 else 0.0
 
+    # ── Thesis metrics (M-1 .. M-5) ────────────────────────────────────────────
+    su_pct = space_utilization(best.placements, container, best.n_bins)   # M-1
+    csr_pct, csr_detail = constraint_satisfaction(                         # M-2
+        best.placements, items, container, weight_cap)
+
+    metrics = {
+        "M1_space_utilization_pct":      round(su_pct, 2),
+        "M2_constraint_satisfaction_pct": round(csr_pct, 2),
+        "M3_execution_time_ms":          round(exec_time_ms, 1),
+        "M4_peak_memory_mb":             round(peak_mem_mb, 2),
+        "M5_robustness_su_std":          None,   # needs >1 run; see batch runner
+        "weight_capacity":               weight_cap,
+        "constraint_detail":             csr_detail,
+    }
+
     result = {
         "status":          "ok",
         "instance":        args.instance_path,
@@ -125,9 +154,10 @@ def main():
         "dissipation":     round(best.dissipation, 6),
         "composite_score": round(best.composite,   6),
         "volume_util_pct": vol_util_pct,
-        "runtime_s":       round(time.time() - _start_time, 2),
+        "runtime_s":       round(exec_time_ms / 1000.0, 2),
         "container":       container,
         "n_items":         n,
+        "metrics":         metrics,
         "items":           packed_items,
     }
 

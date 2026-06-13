@@ -161,6 +161,7 @@ function StatsPanel({ stats, info }) {
 // ── Final summary panel ───────────────────────────────────────────────────────
 function FinalSummary({ result }) {
   if (!result) return null;
+  const m = result.metrics;
   return (
     <div style={{ ...S.card, borderLeft: `3px solid ${C.green}` }}>
       <label style={S.label}>✔ Optimization Complete</label>
@@ -174,6 +175,50 @@ function FinalSummary({ result }) {
         <StatChip label="Dissipation"     value={result.dissipation.toFixed(4)} color={C.dim} />
         <StatChip label="Composite Score" value={result.composite_score.toFixed(4)} color={C.dim} />
       </div>
+
+      {/* ── Thesis evaluation metrics (M-1 .. M-5) ── */}
+      {m && (
+        <div style={{ marginTop: 18 }}>
+          <label style={{ ...S.label, color: C.purple }}>Thesis Metrics (M-1 – M-5)</label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            <StatChip label="M-1 · Space Util. (SU)"
+                      value={`${m.M1_space_utilization_pct}%`} color={C.blueL} />
+            <StatChip label="M-2 · Constraint Sat. (CSR)"
+                      value={`${m.M2_constraint_satisfaction_pct}%`}
+                      color={m.M2_constraint_satisfaction_pct >= 100 ? C.green : C.amber} />
+            <StatChip label="M-3 · Exec. Time (ET)"
+                      value={`${m.M3_execution_time_ms} ms`} color={C.muted} />
+            <StatChip label="M-4 · Peak Memory (PM)"
+                      value={`${m.M4_peak_memory_mb} MB`} color={C.muted} />
+            <StatChip label="M-5 · Robustness (Rob)"
+                      value={m.M5_robustness_su_std == null ? 'N/A (1 run)'
+                                                            : m.M5_robustness_su_std.toFixed(2)}
+                      color={C.dim} />
+          </div>
+
+          {/* CSR breakdown */}
+          {m.constraint_detail && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 10 }}>
+              <StatChip label="Weight Compliance"
+                        value={`${m.constraint_detail.weight_compliance_pct.toFixed(1)}%`}
+                        color={m.constraint_detail.overweight_bins === 0 ? C.green : C.red} />
+              <StatChip label="80% Base-Support"
+                        value={`${m.constraint_detail.support_compliance_pct.toFixed(1)}%`}
+                        color={m.constraint_detail.support_violations === 0 ? C.green : C.amber} />
+              <StatChip label="Support Violations"
+                        value={m.constraint_detail.support_violations}
+                        color={m.constraint_detail.support_violations === 0 ? C.green : C.amber} />
+              <StatChip label="Fragility / LBS" value="N/A" color={C.dim} />
+            </div>
+          )}
+
+          <div style={{ fontSize: 11, color: C.dim, marginTop: 10, lineHeight: 1.5 }}>
+            M-5 (robustness) is the std. dev. of SU across independent runs and
+            requires the batch runner; a single live run reports N/A. Weights are
+            synthetic (seed 42) and fragility/LBS is unavailable in the BR dataset.
+          </div>
+        </div>
+      )}
     </div>
   );
 }
