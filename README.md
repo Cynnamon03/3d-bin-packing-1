@@ -1,78 +1,148 @@
-# HANDOFF NOTE — Data Mining Activity (Real Results) June 7, 2026
+# 3D Bin Packing — HD-GWO Optimizer
 
-## What this is
-Our data mining document currently has "projected" numbers taken from the
-Kosari et al. paper, NOT from actually running our code. The professor wants
-REAL results from running our baseline model. This script produces those real
-numbers automatically.
+A Hybrid Discrete Grey Wolf Optimizer (HD-GWO) for the Three-Dimensional Bin
+Packing Problem, with a live web-based 3D visualizer and a batch evaluation
+suite. This repository is the baseline implementation supporting the
+undergraduate thesis on intra-variant GWO hybridization for the constrained
+3D-BPP (Group 12, BSCS, Polytechnic University of the Philippines).
 
-Our real HD-GWO baseline already works well (it hit optimal on test runs), so
-there is no downside — the real numbers are good.
+The system packs a set of boxes into the minimum number of fixed-size
+containers while reporting the five thesis evaluation metrics (M-1 through
+M-5) on every run.
 
+## Repository layout
 
-## What you need to do (about 15 minutes)
+```
+3d-bin-packing/
+├── optimizer/        Python optimizer, metrics, and batch runners
+├── server/           Node.js/Express + WebSocket backend
+├── client/           React + Three.js frontend (live 3D viewer)
+└── data/             Bischoff–Ratcliff (BR) benchmark instances (JSON)
+```
 
-### Step 1 — Put the script in the right folder
-Copy `run_datamining.py` into:
-    D:\dev\3d-bin-packing\optimizer\
+The `data/CLP-Datasets-main/BR/` folder holds the benchmark sets BR0–BR18,
+100 JSON instances each. Large preprocessed splits (`data/train/`,
+`data/held_out/`) are intentionally excluded from the repository because they
+exceed GitHub's file-size limit; obtain them separately if needed.
 
-(It sits next to instance_reader.py and baseline_2d.py, which it needs.)
+## Requirements
 
+- Python 3.12 (no third-party packages required for the core optimizer; it
+  uses only the standard library)
+- Node.js v22 or later (for the web app)
 
-### Step 2 — Open a terminal in that folder
-In VS Code: open the project, press Ctrl+` (backtick) to open the terminal.
-Then type:
-    cd D:\dev\3d-bin-packing\optimizer
+## Quick start
 
+### 1. Command-line optimizer
 
-### Step 3 — Run the script
-Type this one line and press Enter:
+Run a single instance and print a JSON result, including the M-1–M-5 metrics:
 
-    python run_datamining.py --set BR0 --count 10 --max-time 30 --out results.txt
+```bash
+cd optimizer
+python main_optimizer.py ../data/CLP-Datasets-main/BR/BR0/21.json --max-time 30
+```
 
-It will:
-  - run our REAL HD-GWO baseline on 10 instances
-  - run S-FFD (the greedy comparator) on the same 10
-  - print a results table
-  - save everything to a file called results.txt in the same folder
+### 2. Web app (live 3D visualizer)
 
-It takes a few minutes. You'll see progress lines like:
-    [1/10] 1.json: HD-GWO 2 bins / 99.8%  |  S-FFD 3 bins / 66.5%
+The web app needs two processes running at the same time, in two terminals.
 
+Terminal 1 — backend (HTTP API on port 3001, WebSocket on port 3002):
 
-### Step 4 — Copy the numbers into the document
-Open results.txt. You'll see two sections:
+```bash
+cd server
+npm install        # first time only
+node index.js
+```
 
-  1. A RESULTS TABLE  -> replace the fake table on page 5 of our document
-                         (the columns match: Active Bins, VUR %, Cost Score,
-                          Constraint Violations)
+Terminal 2 — frontend (opens http://localhost:3000):
 
-  2. A COMPARISON SUMMARY -> use these for the "Comparison Against Greedy
-                             Baseline" section on page 7 (the bullet points
-                             about % fewer bins, VUR improvement, etc.)
+```bash
+cd client
+npm install        # first time only
+npm start
+```
 
-Just swap our real numbers in place of the projected ones. Done.
+Pick an instance from the dropdown and start a run. The 3D viewer renders the
+initial packing within about a second, then refreshes each iteration. Smaller
+instances (for example BR0/21 at 41 items or BR0/4 at 87 items) are best for
+a smooth demo; very large instances pack slowly because each iteration
+re-decodes the full arrangement.
 
+The backend spawns `python` for each run, so Python must be on the PATH of the
+shell that launches `node index.js`.
 
-## Important note for the writeup
-Change the dataset wording slightly. Our document says we used OR-Library
-.txt files (BR1, BR3, BR5, thpack7). What we ACTUALLY ran is the JSON-format
-Bischoff-Ratcliff (BR) instances from CLP-Datasets-Main (BR0, etc.).
+## Evaluation metrics (M-1 – M-5)
 
-These are the SAME benchmark family (Bischoff-Ratcliff is part of OR-Library),
-just a different file format. So either:
-  - say we used the JSON-formatted BR instances, OR
-  - keep OR-Library wording but note the BR instances were used
+Every run reports the thesis evaluation metrics:
 
-Whichever the group prefers — just make the document match what we actually ran.
+| Metric | Name | Definition |
+| --- | --- | --- |
+| M-1 | Space Utilization (SU) | Packed volume as a percentage of total active-bin volume |
+| M-2 | Constraint Satisfaction Rate (CSR) | Percentage of placements satisfying per-bin weight capacity and the 80% base-support balancing constraint |
+| M-3 | Execution Time (ET) | Wall-clock run time in milliseconds |
+| M-4 | Peak Memory (PM) | Peak memory in MB, measured with `tracemalloc` |
+| M-5 | Robustness (Rob) | Standard deviation of SU across independent runs |
 
+Notes on the baseline:
 
-## If something breaks
-- "folder not found"  -> the BR data isn't at data\CLP-Datasets-Main\BR\.
-                         Check that the dataset was copied over.
-- "No module named..." -> run_datamining.py isn't in the optimizer folder
-                         next to baseline_2d.py and instance_reader.py.
-- It hangs on a big instance -> add  --count 5  to run fewer, or lower
-                         --max-time to 15.
+- Box weights are synthetic and deterministic (fixed seed), because the BR
+  benchmark does not include native weights. This keeps weight a controlled,
+  reproducible variable across runs.
+- Fragility / load-bearing strength is reported as N/A on this dataset, as the
+  BR JSON files carry no load-bearing-strength attribute.
+- The baseline does not enforce the 80% base-support constraint, so CSR may
+  fall below 100%. This is expected and documents the feasibility gap that the
+  thesis hybrid configurations are designed to close.
+- M-5 requires more than one run, so the live single-run web view reports it as
+  N/A; use the batch metrics runner below to obtain it.
 
-That's it. Run it, copy the real numbers in, and the submission is genuine.
+## Batch evaluation
+
+To evaluate the baseline across many instances with several independent runs
+each (the full thesis protocol uses 30 runs per instance):
+
+```bash
+cd optimizer
+python run_metrics.py --set BR0 --count 10 --runs 5 --max-time 30 --out metrics_results.txt
+```
+
+Key flags:
+
+- `--set` — BR set folder (default BR0)
+- `--count` — number of instances to evaluate
+- `--runs` — independent runs per instance (the thesis methodology uses 30)
+- `--max-time` — per-run wall-clock limit in seconds
+- `--max-items` — skip instances larger than this (the 3D baseline scales
+  poorly above roughly 300 items)
+
+Results are written as a formatted table plus a JSON dump.
+
+## Key source files
+
+In `optimizer/`:
+
+- `main_optimizer.py` — command-line and streaming entry point for the web app
+- `hd_gwo.py`, `wolf.py` — the HD-GWO algorithm and 3D placement engine
+- `instance_reader.py` — loads BR benchmark JSON instances
+- `webapp_metrics.py` — M-1–M-5 metrics for the live single-instance runs
+- `run_metrics.py`, `thesis_metrics.py` — batch metrics suite (includes M-5)
+- `run_phase2.py`, `wolf_3d.py`, `geometry_3d.py` — Phase-2 3D pipeline
+
+In `server/`:
+
+- `index.js` — Express API and WebSocket server; spawns the Python optimizer
+  per run and streams its JSON events to the client
+
+In `client/src/`:
+
+- `App.js` — single-instance view with the live 3D viewer and metrics panel
+- `BatchRunner.jsx` — multi-instance batch view with a per-instance metrics table
+- `BinViewer.jsx` — Three.js 3D rendering of a packed container
+
+## Notes for contributors
+
+The benchmark dataset lives under `data/` but the very large preprocessed
+splits are git-ignored. After any history rewrite (for example, removing
+oversized files), other contributors should re-clone or run
+`git fetch origin && git reset --hard origin/main` to realign their local
+history.
