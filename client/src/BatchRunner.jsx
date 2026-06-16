@@ -402,7 +402,7 @@ export default function BatchRunner() {
           <p style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>
             Drag to rotate · Scroll to zoom · Updates every iteration
           </p>
-          <BinViewer result={liveResult} />
+          <BinViewer result={liveResult} running={running} />
         </div>
       )}
 

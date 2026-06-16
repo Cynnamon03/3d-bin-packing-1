@@ -479,6 +479,7 @@ function LiveRunner() {
                 container={instanceInfo.container}
                 binsUsed={binsUsed}
                 showLabels={showLabels}
+                running={running}
               />
             : <LoadingOverlay />
           }
@@ -512,6 +513,7 @@ function LiveRunner() {
             container={finalResult.container}
             binsUsed={finalResult.bins_used}
             showLabels={showLabels}
+            running={running}
           />
         </div>
       )}
