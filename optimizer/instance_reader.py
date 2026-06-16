@@ -40,6 +40,7 @@ def load_instance(json_path):
 
     # ── Items (expanded by Demand) ────────────────────────────────────────────
     items = []
+    box_counter = 1
     for item_def in data['Items']:
         demand = int(item_def.get('Demand') or 1)
 
@@ -53,12 +54,14 @@ def load_instance(json_path):
 
         for _ in range(demand):
             items.append({
+                'id': f"Box-{box_counter:03d}",
                 'L': int(item_def['Length']),
                 'H': int(item_def['Height']),
                 'D': int(item_def['Depth']),
                 'can_rotate': can_rotate,
                 'stop': 1,   # single-stop default; extend for LIFO later
             })
+            box_counter += 1
 
     return container, items
 

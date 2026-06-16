@@ -244,6 +244,7 @@ function LiveRunner() {
   const [loadingList, setLoadingList] = useState(true);
   const [wsConnected, setWsConnected] = useState(false);
   const [running,     setRunning]     = useState(false);
+  const [showLabels,  setShowLabels]  = useState(false);
 
   // Optimizer data
   const [instanceInfo, setInstanceInfo] = useState(null); // { container, n_items, lower_bound }
@@ -437,6 +438,18 @@ function LiveRunner() {
                     <button style={S.stopBtn} onClick={stop}>■ Stop</button>
                   </>
               }
+
+              <button
+                style={{
+                  ...S.btn(false),
+                  background: showLabels ? C.amber : C.border,
+                  color: C.text,
+                  border: `1px solid ${showLabels ? C.amber : C.dim}`,
+                }}
+                onClick={() => setShowLabels(prev => !prev)}
+              >
+                {showLabels ? '🏷️ Hide All Labels' : '🏷️ Show All Labels'}
+              </button>
             </div>
           )
         }
@@ -460,11 +473,12 @@ function LiveRunner() {
           <p style={{ fontSize: 12, color: C.dim, marginBottom: 12 }}>
             Drag to rotate · Scroll to zoom · Right-drag to pan · Updates every iteration
           </p>
-          {placements && instanceInfo
+           {placements && instanceInfo
             ? <BinViewer
                 placements={placements}
                 container={instanceInfo.container}
                 binsUsed={binsUsed}
+                showLabels={showLabels}
               />
             : <LoadingOverlay />
           }
@@ -497,6 +511,7 @@ function LiveRunner() {
             placements={finalResult.items}
             container={finalResult.container}
             binsUsed={finalResult.bins_used}
+            showLabels={showLabels}
           />
         </div>
       )}

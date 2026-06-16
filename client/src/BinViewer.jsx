@@ -15,9 +15,9 @@
  * Each item gets a thin dark wireframe edge so boxes pop.
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import { OrbitControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 
 // ── Per-item colour using golden-angle hue ───────────────────────────────────
@@ -38,19 +38,62 @@ const WireBox = React.memo(function WireBox({ x, y, z, l, h, d }) {
 });
 
 // ── Packed item: solid face + dark edge outline ───────────────────────────────
-const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx }) {
+const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, showLabels }) {
+  const [hovered, setHovered] = useState(false);
   const color   = useMemo(() => itemHSL(itemIdx), [itemIdx]);
   const faceGeo = useMemo(() => new THREE.BoxGeometry(l - 1, h - 1, d - 1), [l, h, d]);
   const edgeGeo = useMemo(() => new THREE.EdgesGeometry(faceGeo), [faceGeo]);
   const cx = x + l / 2, cy = y + h / 2, cz = z + d / 2;
+  const boxId = id || `Box-${String(itemIdx + 1).padStart(3, '0')}`;
+
+  // Calculate center coordinates relative to the mesh coordinate space
+  const centerX = 0;
+  const centerY = 0;
+  const centerZ = 0;
+
   return (
     <group position={[cx, cy, cz]}>
-      <mesh geometry={faceGeo}>
+      <mesh
+        geometry={faceGeo}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          setHovered(true);
+        }}
+        onPointerOut={(e) => {
+          e.stopPropagation();
+          setHovered(false);
+        }}
+      >
         <meshStandardMaterial
           color={color}
-          transparent opacity={0.82}
-          roughness={0.35} metalness={0.08}
+          transparent
+          opacity={hovered ? 0.95 : 0.82}
+          emissive={hovered ? color : '#000000'}
+          emissiveIntensity={hovered ? 0.45 : 0}
+          roughness={0.35}
+          metalness={0.08}
         />
+        {(showLabels || hovered) && (
+          <Html
+            position={[centerX, centerY, centerZ]}
+            center
+            style={{
+              background: 'rgba(255, 255, 255, 0.9)',
+              color: 'black',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              pointerEvents: 'none',
+              whiteSpace: 'nowrap',
+              fontFamily: 'sans-serif',
+              fontWeight: 'bold',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.25)',
+              border: '1px solid rgba(0,0,0,0.1)'
+            }}
+          >
+            {boxId}
+          </Html>
+        )}
       </mesh>
       <lineSegments geometry={edgeGeo}>
         <lineBasicMaterial color="#000000" transparent opacity={0.55} />
@@ -60,7 +103,7 @@ const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx }) {
 });
 
 // ── Main viewer ───────────────────────────────────────────────────────────────
-export default function BinViewer({ result, placements: placementsProp, container: containerProp, binsUsed: binsUsedProp }) {
+export default function BinViewer({ result, placements: placementsProp, container: containerProp, binsUsed: binsUsedProp, showLabels }) {
   // Normalise to a single internal format
   const items     = result ? result.items      : (placementsProp || []);
   const container = result ? result.container  : containerProp;
@@ -107,6 +150,8 @@ export default function BinViewer({ result, placements: placementsProp, containe
                     x={it.x} y={it.y} z={it.z}
                     l={it.l} h={it.h} d={it.d}
                     itemIdx={it.item_idx}
+                    id={it.id}
+                    showLabels={showLabels}
                   />
                 ))}
               </group>

@@ -115,11 +115,14 @@ def main():
     packed_items = []
     for item_idx, placement in best.placements.items():
         bin_id, x, y, z, l, h, d = placement
+        item_id = items[item_idx].get('id', f"Box-{item_idx+1:03d}")
         packed_items.append({
+            "id":       item_id,
             "item_idx": item_idx,
             "bin_id":   bin_id,
             "x": x, "y": y, "z": z,
             "l": l, "h": h, "d": d,
+            "length": l, "height": h, "width": d,
             "orig_L": items[item_idx]['L'],
             "orig_H": items[item_idx]['H'],
             "orig_D": items[item_idx]['D'],

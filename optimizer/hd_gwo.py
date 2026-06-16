@@ -52,11 +52,14 @@ class HDGWO:
         result = []
         for item_idx, placement in wolf.placements.items():
             bin_id, x, y, z, l, h, d = placement
+            item_id = self.items[item_idx].get('id', f"Box-{item_idx+1:03d}")
             result.append({
+                "id":       item_id,
                 "item_idx": item_idx,
                 "bin_id":   bin_id,
                 "x": x, "y": y, "z": z,
                 "l": l, "h": h, "d": d,
+                "length": l, "height": h, "width": d,
             })
         result.sort(key=lambda p: (p["bin_id"], p["z"], p["y"], p["x"]))
         return result
