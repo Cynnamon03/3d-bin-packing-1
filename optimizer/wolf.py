@@ -21,24 +21,14 @@ import random
 import math
 
 # Cap how many EPs we track per bin to keep decode times bounded.
-MAX_EPS_PER_BIN = 60
+MAX_EPS_PER_BIN = 30
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Geometry helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-def get_orientations(item):
-    """Return all distinct (l, h, d) orientations allowed for an item."""
-    L, H, D = item['L'], item['H'], item['D']
-    if item['can_rotate']:
-        seen, result = set(), []
-        for perm in [(L,H,D), (L,D,H), (H,L,D), (H,D,L), (D,L,H), (D,H,L)]:
-            if perm not in seen:
-                seen.add(perm)
-                result.append(perm)
-        return result
-    return [(L, H, D)]
+
 
 
 def _overlaps(ax, ay, az, al, ah, ad, bx, by, bz, bl, bh, bd):
@@ -48,12 +38,13 @@ def _overlaps(ax, ay, az, al, ah, ad, bx, by, bz, bl, bh, bd):
             az < bz + bd and az + ad > bz)
 
 
-def _fits(ex, ey, ez, l, h, d, CL, CH, CD, placed_in_bin):
+def _fits(ex, ey, ez, l, h, d, placed_in_bin):
     """True if item (l,h,d) can be placed at (ex,ey,ez) without conflict."""
-    if ex + l > CL or ey + h > CH or ez + d > CD:
-        return False
     for (px, py, pz, pl, ph, pd) in placed_in_bin:
-        if _overlaps(ex, ey, ez, l, h, d, px, py, pz, pl, ph, pd):
+        # Inlined overlaps check to avoid function call overhead
+        if (ex < px + pl and ex + l > px and
+            ey < py + ph and ey + h > py and
+            ez < pz + pd and ez + d > pz):
             return False
     return True
 
@@ -122,7 +113,7 @@ def place_items(sequence, items, container):
 
     for item_idx in sequence:
         item   = items[item_idx]
-        orients = get_orientations(item)
+        orients = item['orientations']
         placed = False
 
         # ── Try existing bins ────────────────────────────────────────────────
@@ -130,7 +121,9 @@ def place_items(sequence, items, container):
             placed_in_bin = bins_placed[bin_idx]
             for (ex, ey, ez) in bins_eps[bin_idx]:    # already DBLF-sorted
                 for (l, h, d) in orients:
-                    if _fits(ex, ey, ez, l, h, d, CL, CH, CD, placed_in_bin):
+                    if ex + l > CL or ey + h > CH or ez + d > CD:
+                        continue
+                    if _fits(ex, ey, ez, l, h, d, placed_in_bin):
                         placed_in_bin.append((ex, ey, ez, l, h, d))
                         bin_items[bin_idx].append(item_idx)
                         placements[item_idx] = (bin_idx, ex, ey, ez, l, h, d)

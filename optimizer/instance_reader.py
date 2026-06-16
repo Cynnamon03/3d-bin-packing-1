@@ -52,13 +52,28 @@ def load_instance(json_path):
             item_def.get('C1_Depth', 0)
         )
 
+        L_val = int(item_def['Length'])
+        H_val = int(item_def['Height'])
+        D_val = int(item_def['Depth'])
+        if can_rotate:
+            seen = set()
+            orients = []
+            for perm in [(L_val, H_val, D_val), (L_val, D_val, H_val), (H_val, L_val, D_val),
+                         (H_val, D_val, L_val), (D_val, L_val, H_val), (D_val, H_val, L_val)]:
+                if perm not in seen:
+                    seen.add(perm)
+                    orients.append(perm)
+        else:
+            orients = [(L_val, H_val, D_val)]
+
         for _ in range(demand):
             items.append({
                 'id': f"Box-{box_counter:03d}",
-                'L': int(item_def['Length']),
-                'H': int(item_def['Height']),
-                'D': int(item_def['Depth']),
+                'L': L_val,
+                'H': H_val,
+                'D': D_val,
                 'can_rotate': can_rotate,
+                'orientations': orients,
                 'stop': 1,   # single-stop default; extend for LIFO later
             })
             box_counter += 1
