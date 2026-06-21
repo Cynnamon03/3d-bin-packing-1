@@ -156,6 +156,101 @@ app.get("/api/instances", (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// GET /api/instance-details
+// Returns details (container dimensions and items list) of a selected instance.
+// ─────────────────────────────────────────────────────────────────────────────
+app.get("/api/instance-details", (req, res) => {
+  const instancePath = req.query.path;
+  if (!instancePath) {
+    return res.status(400).json({ error: "path parameter is required" });
+  }
+  try {
+    const resolved = path.resolve(instancePath);
+    if (!resolved.startsWith(path.resolve(DATA_ROOT))) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    if (!fs.existsSync(resolved)) {
+      return res.status(404).json({ error: "Instance not found" });
+    }
+    const content = fs.readFileSync(resolved, "utf8");
+    const parsed = JSON.parse(content);
+    
+    // Map parsed format to front-end expected properties
+    const container = parsed.Objects && parsed.Objects[0] ? {
+      L: parsed.Objects[0].Length,
+      H: parsed.Objects[0].Height,
+      D: parsed.Objects[0].Depth
+    } : null;
+
+    const items = (parsed.Items || []).map((it, idx) => ({
+      id: it.id || `BOX-${String(idx + 1).padStart(3, "0")}`,
+      L: it.Length,
+      H: it.Height,
+      D: it.Depth,
+      Qty: it.Demand,
+      Type: it.Type || "Standard",
+      Weight: it.Weight || parseFloat((10 + (idx * 3.5) % 15).toFixed(1)), // synthetic weight
+      Stop: it.Stop || 1
+    }));
+
+    res.json({ container, items });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/instances/custom
+// Creates or updates the custom run configuration file.
+// ─────────────────────────────────────────────────────────────────────────────
+app.post("/api/instances/custom", (req, res) => {
+  try {
+    const { container, items } = req.body;
+    if (!container || !items) {
+      return res.status(400).json({ error: "container and items are required" });
+    }
+
+    const customDir = path.join(DATA_ROOT, "custom");
+    if (!fs.existsSync(customDir)) {
+      fs.mkdirSync(customDir, { recursive: true });
+    }
+    const filePath = path.join(customDir, "custom.json");
+
+    const formatted = {
+      Name: "custom",
+      Objects: [{
+        Length: Number(container.L),
+        Height: Number(container.H),
+        Depth: Number(container.D),
+        Stock: null,
+        Cost: 0
+      }],
+      Items: items.map((it) => ({
+        id: it.id,
+        Length: Number(it.L),
+        C1_Length: 0,
+        Height: Number(it.H),
+        C1_Height: 1,
+        Depth: Number(it.D),
+        C1_Depth: 0,
+        Demand: Number(it.Qty),
+        DemandMax: null,
+        Type: it.Type || "Standard",
+        Weight: Number(it.Weight || 0),
+        Stop: Number(it.Stop || 1),
+        Value: 0
+      }))
+    };
+
+    fs.writeFileSync(filePath, JSON.stringify(formatted, null, 2));
+    res.json({ success: true, path: filePath });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// ─────────────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`\n✅  HTTP API  →  http://localhost:${PORT}`);
   console.log(`✅  WebSocket →  ws://localhost:${WS_PORT}`);

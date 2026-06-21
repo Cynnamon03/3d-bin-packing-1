@@ -1,0 +1,42 @@
+{
+  "Name": "custom",
+  "Objects": [
+    {
+      "Length": 587,
+      "Height": 233,
+      "Depth": 220,
+      "Stock": null,
+      "Cost": 0
+    }
+  ],
+  "Items": [
+    {
+      "id": "BOX-001",
+      "Length": 108,
+      "C1_Length": 0,
+      "Height": 30,
+      "C1_Height": 1,
+      "Depth": 76,
+      "C1_Depth": 0,
+      "Demand": 122,
+      "DemandMax": null,
+      "Type": "Standard",
+      "Weight": 10,
+      "Value": 0
+    },
+    {
+      "id": "BOX-999",
+      "Length": 120,
+      "C1_Length": 0,
+      "Height": 50,
+      "C1_Height": 1,
+      "Depth": 80,
+      "C1_Depth": 0,
+      "Demand": 3,
+      "DemandMax": null,
+      "Type": "Fragile",
+      "Weight": 5,
+      "Value": 0
+    }
+  ]
+}
