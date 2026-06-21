@@ -1,148 +1,204 @@
-# 3D Bin Packing — HD-GWO Optimizer
+# HGWO-MS3D / STACKR — Handoff: Phases 3 & 4
 
-A Hybrid Discrete Grey Wolf Optimizer (HD-GWO) for the Three-Dimensional Bin
-Packing Problem, with a live web-based 3D visualizer and a batch evaluation
-suite. This repository is the baseline implementation supporting the
-undergraduate thesis on intra-variant GWO hybridization for the constrained
-3D-BPP (Group 12, BSCS, Polytechnic University of the Philippines).
+Handoff doc for the UI tab-shell and visual-polish work. Phases 0–2 (repo
+cleanup, SQLite auth backend, routing + login/register/protected app) are
+**done and committed**. This covers what's left.
 
-The system packs a set of boxes into the minimum number of fixed-size
-containers while reporting the five thesis evaluation metrics (M-1 through
-M-5) on every run.
+Repo: `D:\dev\3d-bin-packing` · Node v22.12.0 · Windows
+Stack: CRA (react-scripts 5) + React 19 + Three.js (client) · Express 5 + ws (server)
 
-## Repository layout
+---
 
-```
-3d-bin-packing/
-├── optimizer/        Python optimizer, metrics, and batch runners
-├── server/           Node.js/Express + WebSocket backend
-├── client/           React + Three.js frontend (live 3D viewer)
-└── data/             Bischoff–Ratcliff (BR) benchmark instances (JSON)
-```
+## ⚠️ READ THIS FIRST — the worktree trap
 
-The `data/CLP-Datasets-main/BR/` folder holds the benchmark sets BR0–BR18,
-100 JSON instances each. Large preprocessed splits (`data/train/`,
-`data/held_out/`) are intentionally excluded from the repository because they
-exceed GitHub's file-size limit; obtain them separately if needed.
+There WAS a git worktree mirror at `.claude/worktrees/admiring-jang-e53b9e/`
+that contained a **full duplicate** of the project — identical folder names,
+identical files. Edits made there silently never reached the running app,
+because `npm start` reads from the real `client/src`, not the mirror. This cost
+hours of debugging. **It has been removed**, but the lesson stands:
 
-## Requirements
+- Before editing ANY file, glance at the editor title bar / breadcrumb and
+  confirm the path is `D:\dev\3d-bin-packing\...` with **no** `.claude` or
+  `worktrees` in it.
+- Open the folder in your editor as exactly `D:\dev\3d-bin-packing` (the root).
+- If a new `.claude/worktrees/...` folder ever reappears, do not edit inside it.
 
-- Python 3.12 (no third-party packages required for the core optimizer; it
-  uses only the standard library)
-- Node.js v22 or later (for the web app)
+---
 
-## Quick start
+## How to run the app (two terminals)
 
-### 1. Command-line optimizer
+PowerShell note: don't chain with `&&`; use separate lines or `;`. Git Bash
+accepts `&&` if you prefer (terminal dropdown in VS Code).
 
-Run a single instance and print a JSON result, including the M-1–M-5 metrics:
-
-```bash
-cd optimizer
-python main_optimizer.py ../data/CLP-Datasets-main/BR/BR0/21.json --max-time 30
-```
-
-### 2. Web app (live 3D visualizer)
-
-The web app needs two processes running at the same time, in two terminals.
-
-Terminal 1 — backend (HTTP API on port 3001, WebSocket on port 3002):
-
-```bash
-cd server
-npm install        # first time only
+Terminal A — backend:
+```powershell
+cd D:\dev\3d-bin-packing\server
 node index.js
 ```
+Starts HTTP API on :3001 and WebSocket on :3002. First run auto-creates
+`server/data/app.db` (SQLite — gitignored, holds users + run history).
 
-Terminal 2 — frontend (opens http://localhost:3000):
-
-```bash
-cd client
-npm install        # first time only
+Terminal B — frontend:
+```powershell
+cd D:\dev\3d-bin-packing\client
 npm start
 ```
+Opens http://localhost:3000. The `proxy` in `client/package.json` forwards
+`/api/...` to :3001, so no CORS work is needed.
 
-Pick an instance from the dropdown and start a run. The 3D viewer renders the
-initial packing within about a second, then refreshes each iteration. Smaller
-instances (for example BR0/21 at 41 items or BR0/4 at 87 items) are best for
-a smooth demo; very large instances pack slowly because each iteration
-re-decodes the full arrangement.
+You'll be redirected to `/login`. Register an account (any email/password;
+roles are Researcher / Logistics / Other and are just a label, not a
+permission gate). After login you land on `/app`.
 
-The backend spawns `python` for each run, so Python must be on the PATH of the
-shell that launches `node index.js`.
+---
 
-## Evaluation metrics (M-1 – M-5)
+## What's already built (don't redo)
 
-Every run reports the thesis evaluation metrics:
+**Backend (`server/`)**
+- `db.js` — SQLite setup; `users` and `runs` tables.
+- `auth.js` — Express router mounted at `/api/auth`:
+  - `POST /register`, `POST /login`, `POST /logout`
+  - `GET /me` (returns current user; 401 if not signed in)
+  - `GET /runs` (current user's run history), `POST /runs` (save a run)
+  - Auth via httpOnly cookie `stackr_token` (JWT). `authRequired` middleware
+    guards the protected routes.
+- `index.js` — original optimizer server (WebSocket runner + `/api/instances`)
+  PLUS the auth wiring (`cookieParser`, `app.use("/api/auth", authRouter)`,
+  and CORS set to `{ origin: true, credentials: true }`).
 
-| Metric | Name | Definition |
-| --- | --- | --- |
-| M-1 | Space Utilization (SU) | Packed volume as a percentage of total active-bin volume |
-| M-2 | Constraint Satisfaction Rate (CSR) | Percentage of placements satisfying per-bin weight capacity and the 80% base-support balancing constraint |
-| M-3 | Execution Time (ET) | Wall-clock run time in milliseconds |
-| M-4 | Peak Memory (PM) | Peak memory in MB, measured with `tracemalloc` |
-| M-5 | Robustness (Rob) | Standard deviation of SU across independent runs |
+**Frontend (`client/src/`)**
+- `auth/AuthContext.jsx` — `useAuth()` exposes `{ user, loading, login,
+  register, logout }`. All fetches use `credentials: "include"`.
+- `auth/LoginPage.jsx`, `auth/RegisterPage.jsx` — minimal but functional
+  (intentionally unstyled — styling is Phase 4). Register has a role picker as
+  tabs (Researcher / Logistics / Other).
+- `index.js` — Router: `/login`, `/register`, `/app` (wrapped in `Protected`),
+  catch-all → `/app`. `Protected` redirects to `/login` when not signed in.
+- `App.js` — the EXISTING single-page dark "STACKR" app (a `LiveRunner`
+  component doing everything), plus `BinViewer.jsx` (3D viewer) and
+  `BatchRunner.jsx`. Untouched by Phases 0–2; this is what Phase 3 restructures.
 
-Notes on the baseline:
+**Key versions / choices already locked**
+- `react-router-dom@6` (NOT 7 — v7 broke the routing pattern; stay on 6).
+- `better-sqlite3`, `bcryptjs` (pure-JS, no Windows build tools), `jsonwebtoken`,
+  `cookie-parser`.
 
-- Box weights are synthetic and deterministic (fixed seed), because the BR
-  benchmark does not include native weights. This keeps weight a controlled,
-  reproducible variable across runs.
-- Fragility / load-bearing strength is reported as N/A on this dataset, as the
-  BR JSON files carry no load-bearing-strength attribute.
-- The baseline does not enforce the 80% base-support constraint, so CSR may
-  fall below 100%. This is expected and documents the feasibility gap that the
-  thesis hybrid configurations are designed to close.
-- M-5 requires more than one run, so the live single-run web view reports it as
-  N/A; use the batch metrics runner below to obtain it.
+---
 
-## Batch evaluation
+## Two open decisions (resolve before/while building)
 
-To evaluate the baseline across many instances with several independent runs
-each (the full thesis protocol uses 30 runs per instance):
+1. **Brand name:** STACKR (current code) vs HGWO-MS3D (mockup). UNDECIDED —
+   pick one and use it consistently in the header and login card.
+2. **Palette:** the team wants BOTH light and dark. So Phase 4 should implement
+   a **theme toggle** (light = mockup look, dark = current code), not a single
+   hardcoded palette. Default to light to match the mockup for the prof demo.
 
-```bash
-cd optimizer
-python run_metrics.py --set BR0 --count 10 --runs 5 --max-time 30 --out metrics_results.txt
-```
+---
 
-Key flags:
+# PHASE 3 — Tab shell (restructure `App.js` into 4 tabs)
 
-- `--set` — BR set folder (default BR0)
-- `--count` — number of instances to evaluate
-- `--runs` — independent runs per instance (the thesis methodology uses 30)
-- `--max-time` — per-run wall-clock limit in seconds
-- `--max-items` — skip instances larger than this (the 3D baseline scales
-  poorly above roughly 300 items)
+**Goal:** turn the single-page app into the mockup's tabbed layout while keeping
+the live optimizer + 3D viewer working. This is structure, not styling.
 
-Results are written as a formatted table plus a JSON dump.
+The mockup has four tabs: **Logistics · Results · Visualization · Run history**,
+a top brand header with an instance/run badge and a profile avatar (with
+logout), matching `Screen_Mockup.pdf` slides 3–6.
 
-## Key source files
+### Suggested approach
+1. **Create `client/src/Shell.jsx`** — the frame:
+   - Top bar: brand name (see decision #1), a right-side badge (e.g. selected
+     instance / run id), and a profile menu showing the logged-in user's name +
+     role with a **Logout** button (call `logout()` from `useAuth()`).
+   - A tab bar with the four tabs; track `activeTab` in state.
+   - Render the active tab's panel below.
+2. **Lift `LiveRunner`'s state up** (or keep `LiveRunner` and pass slices down).
+   `LiveRunner` currently holds the WebSocket connection, the streaming
+   iteration updates, and the final result. The four panels each consume part
+   of that:
+   - **Logistics** — instance selector (`GET /api/instances`), container info,
+     algorithm settings (Sequential / Embedded / Repair-based → existing
+     strategy flags), the item/box table, and the **Run optimizer** button
+     (sends `{ action: "run", instancePath, maxTime }` over the WS — protocol
+     unchanged).
+   - **Results** — the metric stat chips + metrics summary + axis utilization,
+     and the convergence curve. Include the **researcher/logistics view toggle**
+     here (see below).
+   - **Visualization** — the existing `<BinViewer>` + view controls.
+   - **Run history** — fetch `GET /api/auth/runs`, list past runs, filter by
+     strategy. (This now persists per user via the backend already built.)
+3. **Persist runs:** when the WS sends `instance_complete`, POST a summary to
+   `/api/auth/runs` (fields: strategy, instance, n_items, space_util,
+   dissipation, runtime_s, bins_used) so Run history fills in.
+4. **Point `/app` at `Shell`** instead of `App` in `index.js` (or have `App`
+   render `Shell`).
 
-In `optimizer/`:
+### Researcher / Logistics view toggle (requested feature)
+The account role is just a label and does NOT gate features. Instead, add a
+toggle in the Results/Visualization area so ANYONE can switch between a
+"Researcher" view (full metrics: composite score, optimality gap, dissipation,
+convergence) and a "Logistics" view (operationally-focused: space utilization,
+load/unload order, bins used) of the **same result**. It's a view switch on the
+data already there, not a permission system.
 
-- `main_optimizer.py` — command-line and streaming entry point for the web app
-- `hd_gwo.py`, `wolf.py` — the HD-GWO algorithm and 3D placement engine
-- `instance_reader.py` — loads BR benchmark JSON instances
-- `webapp_metrics.py` — M-1–M-5 metrics for the live single-instance runs
-- `run_metrics.py`, `thesis_metrics.py` — batch metrics suite (includes M-5)
-- `run_phase2.py`, `wolf_3d.py`, `geometry_3d.py` — Phase-2 3D pipeline
+### WebSocket protocol (server → client) — for reference
+Each message is a JSON line. Types: `instance_info`, `iteration_update`
+(has best_bins, best_dissipation, best_composite, temperature, solution[…]),
+`integration_applied`, `instance_complete` (final metrics + items[…]),
+`stopped`, `error`, `run_closed`. The client sends `{action:"run", instancePath,
+maxTime}` and `{action:"stop"}`. **Do not change this protocol** — the Python
+optimizer depends on it.
 
-In `server/`:
+**Checkpoint 3:** app is tabbed; every existing feature still works (running an
+instance still streams and renders in 3D); Run history populates after a run;
+view toggle switches the Results presentation. Commit:
+`git commit -m "checkpoint 3: tab shell + run history + view toggle"`
 
-- `index.js` — Express API and WebSocket server; spawns the Python optimizer
-  per run and streams its JSON events to the client
+---
 
-In `client/src/`:
+# PHASE 4 — Visual polish (match the mockup + prof feedback)
 
-- `App.js` — single-instance view with the live 3D viewer and metrics panel
-- `BatchRunner.jsx` — multi-instance batch view with a per-instance metrics table
-- `BinViewer.jsx` — Three.js 3D rendering of a packed container
+**Goal:** make it look like `Screen_Mockup.pdf`. This is the phase that closes
+the visual gap.
 
-## Notes for contributors
+### Theme toggle (per decision #2)
+Implement light + dark palettes with a toggle (e.g. in the header or profile
+menu). Light = mockup (white/elevated cards, indigo/violet accent ~`#6366f1`,
+soft shadows). Dark = current STACKR look. Use CSS variables so the toggle just
+swaps a class on the root. Default light.
 
-The benchmark dataset lives under `data/` but the very large preprocessed
-splits are git-ignored. After any history rewrite (for example, removing
-oversized files), other contributors should re-clone or run
-`git fetch origin && git reset --hard origin/main` to realign their local
-history.
+### Mockup-feedback items (from `Mock_up_Feedback` — must address)
+- **"Sign in" not "Request access"** on the auth screen. (Login already says
+  "Sign in"; make sure Register/links match and there's no "Request access".)
+- **Visible frames** — cards/panels must have visible borders/outlines; the
+  mockup screens currently look like they float.
+- **Separate large graphs** — the convergence curve and axis-utilization were
+  cramped/cut-off ("putol") in the mockup. Give each its OWN full-size card in
+  the Results tab, not a tiny clipped box.
+- **Palette open** — hence the toggle above.
+
+### Polish targets
+- Login/Register → the glassmorphic centered card from mockup slide 2 (brand
+  logo, "Welcome back / Sign in to continue", email + password fields with
+  icons, full-width Sign in button, "No account? Register" link).
+- Header, tab bar, stat chips, tables, and the run-history rows styled to match
+  slides 3–6.
+- Profile avatar with initials, dropdown with name/role + logout.
+
+**Checkpoint 4:** closely matches the mockup in light mode; dark mode works via
+toggle; all three feedback items addressed. Commit, then it's ready to show the
+SE professor for the clutter critique.
+
+---
+
+## Git / workflow notes
+- Commit at each checkpoint. Keep `.claude/` and `server/data/` OUT of git
+  (already in `.gitignore`).
+- Local `main` is ahead of `origin/main` by a couple commits — run `git push`
+  to back up to GitHub when ready.
+- The Python optimizer + dataset are unchanged; don't touch `optimizer/` or
+  `data/`. We are NOT building the Multi-Objective variant — current scope is
+  HD-GWO + Simulated Annealing only.
+
+## Useful references in the repo
+- `Screen_Mockup.pdf` — the target design (slides 1–7).
+- `Mock_up_Feedback` — the prof's notes (the must-address items above).
