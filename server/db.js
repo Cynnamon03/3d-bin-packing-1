@@ -1,36 +1,138 @@
-const path = require ("path");
-const fs = require ("fs");
-const Database = require ("better-sqlite3");
+// server/db.js
+const fs = require("fs");
+const path = require("path");
 
 const DATA_DIR = path.join(__dirname, "data");
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true});
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
-const db = new Database(path.join(DATA_DIR, "app.db"));
-db.pragma("journal_more = WAL");
+const FILE_PATH = path.join(DATA_DIR, "db_mock.json");
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    email      TEXT UNIQUE NOT NULL,
-    name       TEXT NOT NULL,
-    role       TEXT NOT NULL DEFAULT 'researcher',
-    pass_hash  TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
+function loadData() {
+  if (!fs.existsSync(FILE_PATH)) {
+    const initial = { users: [], runs: [] };
+    fs.writeFileSync(FILE_PATH, JSON.stringify(initial, null, 2), "utf8");
+    return initial;
+  }
+  try {
+    return JSON.parse(fs.readFileSync(FILE_PATH, "utf8"));
+  } catch (e) {
+    return { users: [], runs: [] };
+  }
+}
 
-  CREATE TABLE IF NOT EXISTS runs (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id     INTEGER NOT NULL,
-    strategy    TEXT,
-    instance    TEXT,
-    n_items     INTEGER,
-    space_util  REAL,
-    dissipation REAL,
-    runtime_s   REAL,
-    bins_used   INTEGER,
-    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
-    FOREIGN KEY (user_id) REFERENCES users(id)
-  );
-`);
+function saveData(data) {
+  fs.writeFileSync(FILE_PATH, JSON.stringify(data, null, 2), "utf8");
+}
 
-module.exports = db;
+class MockStatement {
+  constructor(sql) {
+    this.sql = sql.trim().replace(/\s+/g, " ");
+  }
+
+  get(...params) {
+    const data = loadData();
+    // 1. SELECT id FROM users WHERE email = ?
+    if (this.sql.includes("SELECT id FROM users WHERE email = ?")) {
+      const email = params[0];
+      const found = data.users.find(u => u.email === email);
+      return found ? { id: found.id } : undefined;
+    }
+    // 2. SELECT * FROM users WHERE id = ?
+    if (this.sql.includes("SELECT * FROM users WHERE id = ?")) {
+      const id = parseInt(params[0], 10);
+      const found = data.users.find(u => u.id === id);
+      return found;
+    }
+    // 3. SELECT * FROM users WHERE email = ?
+    if (this.sql.includes("SELECT * FROM users WHERE email = ?")) {
+      const email = params[0];
+      const found = data.users.find(u => u.email === email);
+      return found;
+    }
+    // 4. SELECT id,email,name,role,created_at FROM users WHERE id = ?
+    if (this.sql.includes("SELECT id,email,name,role,created_at FROM users WHERE id = ?")) {
+      const id = parseInt(params[0], 10);
+      const found = data.users.find(u => u.id === id);
+      if (found) {
+        return {
+          id: found.id,
+          email: found.email,
+          name: found.name,
+          role: found.role,
+          created_at: found.created_at
+        };
+      }
+      return undefined;
+    }
+    return undefined;
+  }
+
+  run(...params) {
+    const data = loadData();
+    // 1. INSERT INTO users (email, name, role, pass_hash) VALUES (?,?,?,?)
+    if (this.sql.includes("INSERT INTO users")) {
+      const [email, name, role, pass_hash] = params;
+      const id = data.users.length ? Math.max(...data.users.map(u => u.id)) + 1 : 1;
+      const newUser = {
+        id,
+        email,
+        name,
+        role: role || "researcher",
+        pass_hash,
+        created_at: new Date().toISOString()
+      };
+      data.users.push(newUser);
+      saveData(data);
+      return { lastInsertRowid: id };
+    }
+    // 2. INSERT INTO runs
+    if (this.sql.includes("INSERT INTO runs")) {
+      const [user_id, strategy, instance, n_items, space_util, dissipation, runtime_s, bins_used] = params;
+      const id = data.runs.length ? Math.max(...data.runs.map(r => r.id)) + 1 : 1;
+      const newRun = {
+        id,
+        user_id: parseInt(user_id, 10),
+        strategy,
+        instance,
+        n_items: parseInt(n_items, 10),
+        space_util: parseFloat(space_util),
+        dissipation: parseFloat(dissipation),
+        runtime_s: parseFloat(runtime_s),
+        bins_used: parseInt(bins_used, 10),
+        created_at: new Date().toISOString()
+      };
+      data.runs.push(newRun);
+      saveData(data);
+      return { lastInsertRowid: id };
+    }
+    return { lastInsertRowid: 0 };
+  }
+
+  all(...params) {
+    const data = loadData();
+    // SELECT * FROM runs WHERE user_id = ? ORDER BY id DESC LIMIT 100
+    if (this.sql.includes("SELECT * FROM runs WHERE user_id = ?")) {
+      const user_id = parseInt(params[0], 10);
+      const filtered = data.runs
+        .filter(r => r.user_id === user_id)
+        .sort((a, b) => b.id - a.id)
+        .slice(0, 100);
+      return filtered;
+    }
+    return [];
+  }
+}
+
+class MockDatabase {
+  exec(sql) {
+    loadData();
+  }
+  pragma(sql) {
+    // noop
+  }
+  prepare(sql) {
+    return new MockStatement(sql);
+  }
+}
+
+module.exports = new MockDatabase();
