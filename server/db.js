@@ -87,7 +87,7 @@ class MockStatement {
     }
     // 2. INSERT INTO runs
     if (this.sql.includes("INSERT INTO runs")) {
-      const [user_id, strategy, instance, n_items, space_util, dissipation, runtime_s, bins_used] = params;
+      const [user_id, strategy, instance, n_items, space_util, dissipation, runtime_s, bins_used, placements_json, container_json] = params;
       const id = data.runs.length ? Math.max(...data.runs.map(r => r.id)) + 1 : 1;
       const newRun = {
         id,
@@ -99,6 +99,8 @@ class MockStatement {
         dissipation: parseFloat(dissipation),
         runtime_s: parseFloat(runtime_s),
         bins_used: parseInt(bins_used, 10),
+        placements: placements_json ? JSON.parse(placements_json) : null,
+        container: container_json ? JSON.parse(container_json) : null,
         created_at: new Date().toISOString()
       };
       data.runs.push(newRun);
