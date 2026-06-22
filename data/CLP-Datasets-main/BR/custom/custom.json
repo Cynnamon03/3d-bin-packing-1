@@ -11,18 +11,33 @@
   ],
   "Items": [
     {
-      "id": "BOX-002BOX-001",
-      "Length": 108,
+      "id": "BOX-001",
+      "Length": 20,
       "C1_Length": 0,
-      "Height": 30,
+      "Height": 15,
       "C1_Height": 1,
-      "Depth": 76,
+      "Depth": 30,
       "C1_Depth": 0,
-      "Demand": 15,
+      "Demand": 3,
       "DemandMax": null,
-      "Type": "Standard",
-      "Weight": 10,
-      "Stop": 11,
+      "Type": "Heavy",
+      "Weight": 25,
+      "Stop": 3,
+      "Value": 0
+    },
+    {
+      "id": "BOX-002",
+      "Length": 10,
+      "C1_Length": 0,
+      "Height": 10,
+      "C1_Height": 1,
+      "Depth": 10,
+      "C1_Depth": 0,
+      "Demand": 2,
+      "DemandMax": null,
+      "Type": "Fragile",
+      "Weight": 5,
+      "Stop": 1,
       "Value": 0
     }
   ]
