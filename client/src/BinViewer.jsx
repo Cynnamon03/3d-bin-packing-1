@@ -215,9 +215,7 @@ export default function BinViewer({ result, placements: placementsProp, containe
     return m;
   }, [visibleItems]);
 
-  if (!container || !items || items.length === 0) return null;
-
-  const { L, H, D } = container;
+  const { L = 0, H = 0, D = 0 } = container || {};
   const BIN_GAP     = L * 0.12;
 
   // Calculate bin count matching actual bins used and/or the highest bin_id present in placements
@@ -231,6 +229,8 @@ export default function BinViewer({ result, placements: placementsProp, containe
   const camDist     = Math.max(totalWidth, H, D) * 1.8;
 
   const target = useMemo(() => [totalWidth / 2, H / 2, D / 2], [totalWidth, H, D]);
+
+  if (!container || !items || items.length === 0) return null;
 
   // Export PNG function
   const handleExportPNG = () => {

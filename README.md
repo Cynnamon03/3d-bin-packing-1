@@ -11,9 +11,7 @@ Stack: React 19 + Three.js (client) · Express 5 + ws (server) · File-backed mo
 
 **Terminal A — backend:**
 ```powershell
-cd client
-npm install
-cd ../server
+cd server
 npm install
 node index.js
 ```
@@ -22,6 +20,7 @@ Starts HTTP API on `:3001` and WebSocket on `:3002`. First run auto-creates `ser
 **Terminal B — frontend:**
 ```powershell
 cd client
+npm install
 $env:BROWSER="none"
 npm start
 ```
