@@ -14,7 +14,7 @@ function itemHSL(itemIdx) {
   return `hsl(${hue.toFixed(1)}, 70%, 60%)`;
 }
 
-// ── Container wireframe ───────────────────────────────────────────────────────
+// ── Container wireframe & visual shell ───────────────────────────────────────
 const WireBox = React.memo(function WireBox({ x, y, z, l, h, d }) {
   const nx = Number(x || 0);
   const ny = Number(y || 0);
@@ -22,12 +22,57 @@ const WireBox = React.memo(function WireBox({ x, y, z, l, h, d }) {
   const nl = Number(l || 0);
   const nh = Number(h || 0);
   const nd = Number(d || 0);
+  
   const geo = useMemo(() => new THREE.BoxGeometry(nl, nh, nd), [nl, nh, nd]);
+  const cx = nx + nl / 2;
+  const cy = ny + nh / 2;
+  const cz = nz + nd / 2;
+
   return (
-    <lineSegments position={[nx + nl / 2, ny + nh / 2, nz + nd / 2]}>
-      <edgesGeometry args={[geo]} />
-      <lineBasicMaterial color="white" transparent opacity={0.35} />
-    </lineSegments>
+    <group>
+      {/* Sleek outer wireframe outline */}
+      <lineSegments position={[cx, cy, cz]}>
+        <edgesGeometry args={[geo]} />
+        <lineBasicMaterial color="#3b82f6" transparent opacity={0.5} />
+      </lineSegments>
+
+      {/* Semi-transparent bottom floor with subtle grid look */}
+      <mesh position={[cx, ny, cz]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[nl, nd]} />
+        <meshStandardMaterial
+          color="#1e293b"
+          transparent
+          opacity={0.35}
+          roughness={0.4}
+          metalness={0.1}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* Semi-transparent back wall */}
+      <mesh position={[cx, cy, nz]}>
+        <planeGeometry args={[nl, nh]} />
+        <meshStandardMaterial
+          color="#111827"
+          transparent
+          opacity={0.2}
+          roughness={0.6}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* Semi-transparent left wall */}
+      <mesh position={[nx, cy, cz]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[nd, nh]} />
+        <meshStandardMaterial
+          color="#111827"
+          transparent
+          opacity={0.2}
+          roughness={0.6}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+    </group>
   );
 });
 
@@ -110,10 +155,23 @@ const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, sho
 // ── Interactive Camera Controller ───────────────────────────────────────────
 function CameraController({ orientation, target, H, camDist, resetTrigger }) {
   const { camera, controls } = useThree();
+  const lastTriggerRef = useRef(-1);
+
   useEffect(() => {
+    if (resetTrigger === lastTriggerRef.current) return;
+    lastTriggerRef.current = resetTrigger;
+
     if (!orientation) return;
     const nH = Number(H || 0);
     const nCamDist = Number(camDist || 0);
+    
+    // Set camera up vector based on orientation to prevent gimbal lock in Top view
+    if (orientation === "Top") {
+      camera.up.set(0, 0, -1);
+    } else {
+      camera.up.set(0, 1, 0);
+    }
+
     if (orientation === "Front") {
       camera.position.set(target[0], target[1], target[2] + nCamDist);
     } else if (orientation === "Side") {
@@ -135,7 +193,7 @@ function CameraController({ orientation, target, H, camDist, resetTrigger }) {
 }
 
 // ── Main viewer ───────────────────────────────────────────────────────────────
-export default function BinViewer({ result, placements: placementsProp, container: containerProp, binsUsed: binsUsedProp, showLabels, running, orientation, resetTrigger, onResetView, onHoverItem }) {
+export default function BinViewer({ result, placements: placementsProp, container: containerProp, binsUsed: binsUsedProp, showLabels, running, orientation, resetTrigger, onResetView, onHoverItem, onInteract }) {
   // Parse container specs to numbers
   const container = useMemo(() => {
     const raw = result ? result.container : containerProp;
@@ -230,6 +288,13 @@ export default function BinViewer({ result, placements: placementsProp, containe
 
   const target = useMemo(() => [totalWidth / 2, H / 2, D / 2], [totalWidth, H, D]);
 
+  const cameraConfig = useMemo(() => ({
+    position: [target[0], target[1] + H * 0.8, target[2] + camDist],
+    fov: 30,
+    near: 1,
+    far: Math.max(10000, camDist * 10)
+  }), [target, H, camDist]);
+
   if (!container || !items || items.length === 0) return null;
 
   // Export PNG function
@@ -247,7 +312,7 @@ export default function BinViewer({ result, placements: placementsProp, containe
       <div style={{ width: '100%', height: 520, background: '#111827', position: 'relative' }}>
         <Canvas
           ref={canvasRef}
-          camera={{ position: [target[0], target[1] + H * 0.8, target[2] + camDist], fov: 30 }}
+          camera={cameraConfig}
           gl={{ antialias: true, preserveDrawingBuffer: true }}
         >
           <ambientLight intensity={0.65} />
@@ -287,7 +352,7 @@ export default function BinViewer({ result, placements: placementsProp, containe
           })}
 
           <CameraController orientation={orientation} target={target} H={H} camDist={camDist} resetTrigger={resetTrigger} />
-          <OrbitControls makeDefault target={target} />
+          <OrbitControls makeDefault target={target} onStart={onInteract} />
         </Canvas>
 
         {/* Playback Controls Overlay */}

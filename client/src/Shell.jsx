@@ -165,7 +165,9 @@ export default function Shell() {
             space_util: msg.metrics?.M1_space_utilization_pct || msg.volume_util_pct,
             dissipation: msg.dissipation,
             runtime_s: msg.runtime_s,
-            bins_used: msg.bins_used
+            bins_used: msg.bins_used,
+            placements: msg.items,
+            container: msg.container
           })
         }).then(() => fetchRunHistory()).catch(() => {});
         break;
@@ -306,6 +308,18 @@ export default function Shell() {
     downloadAnchor.setAttribute("download", "STACKR-optimization-history.json");
     downloadAnchor.click();
   };
+
+  const handleLoadVisualization = useCallback((run) => {
+    if (!run || !run.placements || !run.container) return;
+    setPlacements(run.placements);
+    setInstanceInfo({
+      container: run.container,
+      n_items: run.placements.length,
+      lower_bound: 1
+    });
+    setBinsUsed(run.bins_used || 1);
+    setActiveTab("visualization");
+  }, []);
 
   // Group dataset instances
   const groupedInstances = useMemo(() => {
@@ -562,6 +576,7 @@ export default function Shell() {
           <RunHistoryTab
             runHistory={runHistory}
             handleExportHistory={handleExportHistory}
+            onLoadVisualization={handleLoadVisualization}
           />
         )}
 

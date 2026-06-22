@@ -14,7 +14,8 @@ function formatDate(dateStr) {
 
 export default function RunHistoryTab({
   runHistory,
-  handleExportHistory
+  handleExportHistory,
+  onLoadVisualization
 }) {
   // Local search and filter states
   const [historyFilter, setHistoryFilter] = useState("All");
@@ -94,6 +95,7 @@ export default function RunHistoryTab({
                   <th style={{ padding: "14px 16px", color: "var(--text-dim)", textAlign: "right" }}>Space Util.</th>
                   <th style={{ padding: "14px 16px", color: "var(--text-dim)", textAlign: "right" }}>Runtime</th>
                   <th style={{ padding: "14px 16px", color: "var(--text-dim)", textAlign: "right" }}>Completed At</th>
+                  <th style={{ padding: "14px 16px", color: "var(--text-dim)", textAlign: "center" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -118,6 +120,27 @@ export default function RunHistoryTab({
                     <td style={{ padding: "14px 16px", textAlign: "right" }}>{run.runtime_s}s</td>
                     <td style={{ padding: "14px 16px", textAlign: "right", color: "var(--text-dim)" }}>
                       {formatDate(run.created_at)}
+                    </td>
+                    <td style={{ padding: "14px 16px", textAlign: "center" }}>
+                      <button
+                        onClick={() => onLoadVisualization(run)}
+                        disabled={!run.placements}
+                        style={{
+                          padding: "6px 10px",
+                          background: run.placements ? "var(--primary)" : "var(--bg-input)",
+                          color: run.placements ? "#ffffff" : "var(--text-muted)",
+                          border: "1px solid var(--border)",
+                          borderRadius: "4px",
+                          fontSize: "11px",
+                          fontWeight: "700",
+                          cursor: run.placements ? "pointer" : "not-allowed",
+                          opacity: run.placements ? 1 : 0.6,
+                          transition: "all 0.15s ease"
+                        }}
+                        title={run.placements ? "Load this run in the 3D viewport" : "No placement coordinates saved for this run"}
+                      >
+                        🔎 Visualize
+                      </button>
                     </td>
                   </tr>
                 ))}

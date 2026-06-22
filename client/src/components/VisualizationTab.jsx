@@ -222,6 +222,11 @@ export default function VisualizationTab({
             resetTrigger={viewportTrigger}
             onResetView={() => triggerViewReset("3D")}
             onHoverItem={setSelectedItemInfo}
+            onInteract={() => {
+              if (viewportOrientation !== "3D") {
+                setViewportOrientation("3D");
+              }
+            }}
           />
         ) : (
           <div style={{ height: "450px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "var(--bg-input)", borderRadius: "8px", border: "1px solid var(--border)" }}>
