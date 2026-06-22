@@ -27,7 +27,8 @@ export default function Shell() {
   // Dynamic Custom Configurations
   const [containerSpecs, setContainerSpecs] = useState({ L: 587, H: 233, D: 220 });
   const [maxLoad, setMaxLoad] = useState(28000);
-  const [itemsList, setItemsList] = useState([]);
+  const [itemsList, setItemsList] = useState([]);       
+  const [instanceItems, setInstanceItems] = useState([]); 
   const [isCustomized, setIsCustomized] = useState(false);
 
   // Algorithm Settings & Constraints
@@ -84,7 +85,7 @@ export default function Shell() {
       .then((data) => {
         const list = data.instances || [];
         setInstances(list);
-        if (list.length) setSelected(list[0].path);
+        // Don't auto-select — let the user choose
         setLoadingList(false);
       })
       .catch(() => {
@@ -95,7 +96,10 @@ export default function Shell() {
 
   // Load selected instance details
   useEffect(() => {
-    if (!selected) return;
+    if (!selected) {
+      setInstanceItems([]);   // clear preview when nothing is selected
+      return;
+    }
     fetch(`/api/instance-details?path=${encodeURIComponent(selected)}`)
       .then((r) => r.json())
       .then((data) => {
@@ -103,7 +107,7 @@ export default function Shell() {
           setContainerSpecs({ L: data.container.L, H: data.container.H, D: data.container.D });
         }
         if (data.items) {
-          setItemsList(data.items);
+          setInstanceItems(data.items);
         }
         setIsCustomized(false);
       })
@@ -239,7 +243,7 @@ export default function Shell() {
 
   // Run handler
   const handleStartRun = useCallback(async () => {
-    if (!selected || running || !wsConnected) return;
+    if (running || !wsConnected) return;
     setRunning(true);
     setInstanceInfo(null);
     setPlacements(null);
@@ -249,12 +253,12 @@ export default function Shell() {
     setFinalResult(null);
     setError(null);
 
-    let runPath = selected;
+  let runPath = selected;
 
-    // Always create a custom.json run path if user customized parameters
-    if (isCustomized) {
-      try {
-        const res = await fetch("/api/instances/custom", {
+  // Use custom path if user added manual items OR if no OR-Library instance is selected
+  if (isCustomized || !selected) {
+    try {
+      const res = await fetch("/api/instances/custom", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -354,7 +358,7 @@ export default function Shell() {
     };
   }, [finalResult]);
 
-  const canRun = wsConnected && !running && itemsList.length > 0;
+  const canRun = wsConnected && !running && (itemsList.length > 0 || instanceItems.length > 0);
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg-app)", color: "var(--text-main)" }}>
@@ -511,550 +515,77 @@ export default function Shell() {
       {/* ── MAIN LAYOUT ──────────────────────────────────────────────────────── */}
       <main style={{ flex: 1, padding: "28px" }}>
 
-        {/* ── LOGISTICS TAB ──────────────────────────────────────────────────── */}
-        {activeTab === "logistics" && (
-<<<<<<< HEAD
-          <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-            
-            {/* Top row structure: Left sidebar config & Right main items table */}
-            <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", alignItems: "flex-start" }}>
-              
-              {/* Left Sidebar Layout */}
-              <div style={{ flex: "1 1 350px", display: "flex", flexDirection: "column", gap: "20px" }}>
-                
-                {/* Container card */}
-                <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
-                  <h4 className="form-label" style={{ color: "var(--primary)", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "16px" }}>
-                    ● CONTAINER (BIN)
-                  </h4>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                    <div>
-                      <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>
-                        Dimensions (cm) — W × D × H
-                      </label>
-                      <div style={{ display: "flex", gap: "8px" }}>
-                        <input
-                          type="number"
-                          value={containerSpecs.L}
-                          onChange={(e) => {
-                            setContainerSpecs({ ...containerSpecs, L: Number(e.target.value) });
-                            setIsCustomized(true);
-                          }}
-                          style={{ width: "33.3%", padding: "10px", border: "1px solid var(--border)", borderRadius: "6px", background: "var(--bg-input)", color: "var(--text-main)", fontSize: "14px", fontWeight: "600", outline: "none", textAlign: "center" }}
-                          disabled={running}
-                        />
-                        <input
-                          type="number"
-                          value={containerSpecs.D}
-                          onChange={(e) => {
-                            setContainerSpecs({ ...containerSpecs, D: Number(e.target.value) });
-                            setIsCustomized(true);
-                          }}
-                          style={{ width: "33.3%", padding: "10px", border: "1px solid var(--border)", borderRadius: "6px", background: "var(--bg-input)", color: "var(--text-main)", fontSize: "14px", fontWeight: "600", outline: "none", textAlign: "center" }}
-                          disabled={running}
-                        />
-                        <input
-                          type="number"
-                          value={containerSpecs.H}
-                          onChange={(e) => {
-                            setContainerSpecs({ ...containerSpecs, H: Number(e.target.value) });
-                            setIsCustomized(true);
-                          }}
-                          style={{ width: "33.3%", padding: "10px", border: "1px solid var(--border)", borderRadius: "6px", background: "var(--bg-input)", color: "var(--text-main)", fontSize: "14px", fontWeight: "600", outline: "none", textAlign: "center" }}
-                          disabled={running}
-                        />
-                      </div>
-                    </div>
+      {/* ── LOGISTICS TAB ── */}
+      {activeTab === "logistics" && (
+        <LogisticsTab
+          containerSpecs={containerSpecs}
+          setContainerSpecs={setContainerSpecs}
+          maxLoad={maxLoad}
+          setMaxLoad={setMaxLoad}
+          strategy={strategy}
+          setStrategy={setStrategy}
+          wolfSize={wolfSize}
+          setWolfSize={setWolfSize}
+          maxIter={maxIter}
+          setMaxIter={setMaxIter}
+          fragilityConstraint={fragilityConstraint}
+          setFragilityConstraint={setFragilityConstraint}
+          rotationConstraint={rotationConstraint}
+          setRotationConstraint={setRotationConstraint}
+          lifoConstraint={lifoConstraint}
+          setLifoConstraint={setLifoConstraint}
+          itemsList={itemsList}
+          setItemsList={setItemsList}
+          setIsCustomized={setIsCustomized}
+          instanceItems={instanceItems}
+          loadingList={loadingList}
+          selected={selected}
+          setSelected={setSelected}
+          groupedInstances={groupedInstances}
+          running={running}
+          elapsed={elapsed}
+          handleStartRun={handleStartRun}
+          handleStopRun={handleStopRun}
+          canRun={canRun}
+        />
+      )}
 
-                    <div>
-                      <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>
-                        Max load capacity (kg)
-                      </label>
-                      <input
-                        type="number"
-                        value={maxLoad}
-                        onChange={(e) => {
-                          setMaxLoad(Number(e.target.value));
-                          setIsCustomized(true);
-                        }}
-                        style={{ width: "100%", padding: "10px 14px", border: "1px solid var(--border)", borderRadius: "6px", background: "var(--bg-input)", color: "var(--text-main)", fontSize: "14px", fontWeight: "600", outline: "none" }}
-                        disabled={running}
-                      />
-                    </div>
+      {/* ── RESULTS TAB ── */}
+      {activeTab === "results" && (
+        <ResultsTab
+          finalResult={finalResult}
+          runHistory={runHistory}
+          strategy={strategy}
+          stats={stats}
+          axisUtil={axisUtil}
+          chartData={chartData}
+          maxIter={maxIter}
+          handleExportResultsCSV={handleExportResultsCSV}
+          handleExportReport={handleExportReport}
+        />
+      )}
 
-                    {/* Dotted/Dashed Preview graphic */}
-                    <div className="dashed-preview">
-                      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-                        <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                        <line x1="12" y1="22.08" x2="12" y2="12" />
-                      </svg>
-                      <span>
-                        {containerSpecs.L} × {containerSpecs.D} × {containerSpecs.H} cm<br />
-                        {maxLoad.toLocaleString()} kg max load
-                      </span>
-                    </div>
-                  </div>
-                </div>
+      {/* ── VISUALIZATION TAB ── */}
+      {activeTab === "visualization" && (
+        <VisualizationTab
+          placements={placements}
+          itemsList={itemsList}
+          instanceInfo={instanceInfo}
+          binsUsed={binsUsed}
+          running={running}
+        />
+      )}
 
-                {/* Algorithm settings card */}
-                <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
-                  <h4 className="form-label" style={{ color: "var(--primary)", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "16px" }}>
-                    ● ALGORITHM SETTINGS
-                  </h4>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                    
-                    {/* Hybrid strategy badges */}
-                    <div>
-                      <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>
-                        Hybrid strategy
-                      </label>
-                      <div style={{ display: "flex", gap: "6px" }}>
-                        {["Sequential", "Embedded", "Repair-based"].map((s) => (
-                          <button
-                            key={s}
-                            onClick={() => setStrategy(s)}
-                            style={{
-                              flex: 1,
-                              padding: "8px 4px",
-                              borderRadius: "6px",
-                              border: "1px solid var(--border)",
-                              background: strategy === s ? "var(--primary)" : "var(--bg-input)",
-                              color: strategy === s ? "#ffffff" : "var(--text-muted)",
-                              fontSize: "12px",
-                              fontWeight: "700",
-                              cursor: "pointer",
-                              transition: "all 0.15s ease"
-                            }}
-                          >
-                            {s}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+      {/* ── RUN HISTORY TAB ── */}
+      {activeTab === "history" && (
+        <RunHistoryTab
+          runHistory={runHistory}
+          handleExportHistory={handleExportHistory}
+          onLoadVisualization={handleLoadVisualization}
+        />
+      )}
 
-                    <div style={{ display: "flex", gap: "12px" }}>
-                      <div style={{ flex: 1 }}>
-                        <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>
-                          Wolf pack size
-                        </label>
-                        <input
-                          type="number"
-                          value={wolfSize}
-                          onChange={(e) => setWolfSize(Number(e.target.value))}
-                          style={{ width: "100%", padding: "10px", border: "1px solid var(--border)", borderRadius: "6px", background: "var(--bg-input)", color: "var(--text-main)", fontSize: "14px", fontWeight: "600", outline: "none", textAlign: "center" }}
-                        />
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>
-                          Max iterations
-                        </label>
-                        <input
-                          type="number"
-                          value={maxIter}
-                          onChange={(e) => setMaxIter(Number(e.target.value))}
-                          style={{ width: "100%", padding: "10px", border: "1px solid var(--border)", borderRadius: "6px", background: "var(--bg-input)", color: "var(--text-main)", fontSize: "14px", fontWeight: "600", outline: "none", textAlign: "center" }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Constraints switches */}
-                    <div style={{ borderTop: "1px solid var(--border)", paddingTop: "12px", marginTop: "4px" }}>
-                      <label style={{ fontSize: "11px", fontWeight: "800", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>
-                        Constraints
-                      </label>
-                      
-                      <div className="switch-container">
-                        <span className="switch-label">Fragility (LBS-based)</span>
-                        <label className="switch">
-                          <input type="checkbox" checked={fragilityConstraint} onChange={(e) => { setFragilityConstraint(e.target.checked); setIsCustomized(true); }} />
-                          <span className="slider" />
-                        </label>
-                      </div>
-                      
-                      <div className="switch-container">
-                        <span className="switch-label">Allow item rotation</span>
-                        <label className="switch">
-                          <input type="checkbox" checked={rotationConstraint} onChange={(e) => { setRotationConstraint(e.target.checked); setIsCustomized(true); }} />
-                          <span className="slider" />
-                        </label>
-                      </div>
-
-                      <div className="switch-container">
-                        <span className="switch-label">LIFO constraint</span>
-                        <label className="switch">
-                          <input type="checkbox" checked={lifoConstraint} onChange={(e) => { setLifoConstraint(e.target.checked); setIsCustomized(true); }} />
-                          <span className="slider" />
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Main Panel Layout */}
-              <div style={{ flex: "2 1 600px", display: "flex", flexDirection: "column", gap: "20px" }}>
-                
-                {/* Stats cards */}
-                <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
-                  <div className="stat-summary-card">
-                    <div className="stat-icon-wrapper" style={{ background: "var(--blue-light)", color: "var(--blue)" }}>
-                      📦
-                    </div>
-                    <div>
-                      <div style={{ fontSize: "22px", fontWeight: "800" }}>{totalItemsCount}</div>
-                      <div style={{ fontSize: "12px", color: "var(--text-dim)", fontWeight: "600" }}>Total items</div>
-                    </div>
-                  </div>
-
-                  <div className="stat-summary-card">
-                    <div className="stat-icon-wrapper" style={{ background: "var(--green-light)", color: "var(--green)" }}>
-                      ⚖️
-                    </div>
-                    <div>
-                      <div style={{ fontSize: "22px", fontWeight: "800" }}>{totalWeightSum} kg</div>
-                      <div style={{ fontSize: "12px", color: "var(--text-dim)", fontWeight: "600" }}>Total weight</div>
-                    </div>
-                  </div>
-
-                  <div className="stat-summary-card">
-                    <div className="stat-icon-wrapper" style={{ background: "var(--amber-light)", color: "var(--amber)" }}>
-                      🏷️
-                    </div>
-                    <div>
-                      <div style={{ fontSize: "22px", fontWeight: "800" }}>{totalCategoriesCount}</div>
-                      <div style={{ fontSize: "12px", color: "var(--text-dim)", fontWeight: "600" }}>Item categories</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Box Log / List Editor */}
-                <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)", paddingBottom: "12px", marginBottom: "18px" }}>
-                    <div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                          <h4 style={{ fontSize: "16px", fontWeight: "800", color: "var(--text-main)" }}>Item / Box log</h4>
-                          <span className="badge badge-standard">{itemsList.length} items</span>
-                        </div>
-                        <p style={{ fontSize: "12px", color: "var(--text-dim)", marginTop: "4px" }}>
-                          Manually add your own boxes below, or import a CSV.
-                        </p>
-                      </div>
-                    <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                      <input
-                        type="file"
-                        accept=".csv"
-                        ref={fileInputRef}
-                        onChange={handleImportCSV}
-                        style={{ display: "none" }}
-                      />
-                      <button
-                        onClick={() => fileInputRef.current.click()}
-                        style={{ padding: "6px 12px", background: "transparent", border: "1px solid var(--border)", borderRadius: "6px", fontSize: "12px", fontWeight: "700", color: "var(--text-muted)", cursor: "pointer" }}
-                      >
-                        Import CSV
-                      </button>
-                      <button
-                        onClick={(e) => handleAddItem(e)}
-                        style={{ padding: "6px 12px", background: "var(--primary)", border: "none", borderRadius: "6px", fontSize: "12px", fontWeight: "700", color: "#ffffff", cursor: "pointer" }}
-                      >
-                        Add item
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Add box editor row */}
-                  <form onSubmit={handleAddItem} className="add-box-form" style={{ display: "flex", gap: "8px", flexWrap: "wrap", background: "var(--bg-input)", padding: "12px", borderRadius: "8px", marginBottom: "16px", alignItems: "flex-end" }}>
-                    <div style={{ flex: "2 1 120px" }}>
-                      <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>Item ID</label>
-                      <input type="text" value={newItemId} onChange={(e) => setNewItemId(e.target.value)} style={{ width: "100%", padding: "8px", border: "1px solid var(--border)", borderRadius: "4px", background: "var(--bg-card)", color: "var(--text-main)", fontSize: "13px", fontWeight: "600", outline: "none" }} />
-                    </div>
-                    <div style={{ flex: "1 1 60px" }}>
-                      <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>Stop</label>
-                      <input type="number" min="1" value={newItemStop} onChange={(e) => setNewItemStop(e.target.value)} style={{ width: "100%", padding: "8px", border: "1px solid var(--border)", borderRadius: "4px", background: "var(--bg-card)", color: "var(--text-main)", fontSize: "13px", outline: "none" }} />
-                    </div>
-                    <div style={{ flex: "1 1 70px" }}>
-                      <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>Width (CM)</label>
-                      <input type="number" value={newItemL} onChange={(e) => setNewL(e.target.value)} style={{ width: "100%", padding: "8px", border: "1px solid var(--border)", borderRadius: "4px", background: "var(--bg-card)", color: "var(--text-main)", fontSize: "13px", outline: "none" }} />
-                    </div>
-                    <div style={{ flex: "1 1 70px" }}>
-                      <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>Depth (CM)</label>
-                      <input type="number" value={newItemD} onChange={(e) => setNewD(e.target.value)} style={{ width: "100%", padding: "8px", border: "1px solid var(--border)", borderRadius: "4px", background: "var(--bg-card)", color: "var(--text-main)", fontSize: "13px", outline: "none" }} />
-                    </div>
-                    <div style={{ flex: "1 1 70px" }}>
-                      <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>Height (CM)</label>
-                      <input type="number" value={newItemH} onChange={(e) => setNewH(e.target.value)} style={{ width: "100%", padding: "8px", border: "1px solid var(--border)", borderRadius: "4px", background: "var(--bg-card)", color: "var(--text-main)", fontSize: "13px", outline: "none" }} />
-                    </div>
-                    <div style={{ flex: "1 1 70px" }}>
-                      <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>Weight (KG)</label>
-                      <input type="number" value={newItemWeight} onChange={(e) => setNewWeight(e.target.value)} style={{ width: "100%", padding: "8px", border: "1px solid var(--border)", borderRadius: "4px", background: "var(--bg-card)", color: "var(--text-main)", fontSize: "13px", outline: "none" }} />
-                    </div>
-                    <div style={{ flex: "1 1 60px" }}>
-                      <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>Quantity</label>
-                      <input type="number" value={newItemQty} onChange={(e) => setNewQty(e.target.value)} style={{ width: "100%", padding: "8px", border: "1px solid var(--border)", borderRadius: "4px", background: "var(--bg-card)", color: "var(--text-main)", fontSize: "13px", outline: "none" }} />
-                    </div>
-                    <div style={{ flex: "2 1 100px" }}>
-                      <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>Type</label>
-                      <select value={newItemType} onChange={(e) => setNewItemType(e.target.value)} style={{ width: "100%", padding: "8px", border: "1px solid var(--border)", borderRadius: "4px", background: "var(--bg-card)", color: "var(--text-main)", fontSize: "13px", outline: "none", fontWeight: "600" }}>
-                        <option value="Standard">Standard</option>
-                        <option value="Fragile">Fragile</option>
-                        <option value="Heavy">Heavy</option>
-                      </select>
-                    </div>
-                    <button type="submit" style={{ padding: "8px 16px", background: "var(--primary)", border: "none", borderRadius: "4px", color: "#ffffff", fontSize: "13px", fontWeight: "700", cursor: "pointer", height: "35px" }}>
-                      ✓ Add
-                    </button>
-                  </form>
-
-                  {/* List Table */}
-                  <div style={{ overflowX: "auto", maxHeight: "300px" }}>
-                    <table className="custom-table">
-                      <thead>
-                        <tr>
-                          <th>Item ID</th>
-                          <th>Stop</th>
-                          <th>Width (cm)</th>
-                          <th>Depth (cm)</th>
-                          <th>Height (cm)</th>
-                          <th>Weight (kg)</th>
-                          <th>Qty</th>
-                          <th>Type</th>
-                          <th style={{ width: "60px" }}></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {itemsList.map((item) => (
-                          <tr key={item.id}>
-                            <td style={{ fontWeight: "700", color: "var(--text-main)" }}>{item.id}</td>
-                            <td style={{ fontWeight: "700", color: "var(--primary)" }}>{item.Stop || 1}</td>
-                            <td>{item.L}</td>
-                            <td>{item.D}</td>
-                            <td>{item.H}</td>
-                            <td>{item.Weight}</td>
-                            <td style={{ fontWeight: "700" }}>{item.Qty}</td>
-                            <td>
-                              <span className={`badge badge-${item.Type.toLowerCase()}`}>
-                                {item.Type}
-                              </span>
-                            </td>
-                            <td>
-                              <button
-                                onClick={() => handleRemoveItem(item.id)}
-                                style={{ background: "transparent", border: "none", color: "var(--red)", fontSize: "16px", cursor: "pointer" }}
-                                title="Remove item"
-                              >
-                                ✕
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* Instance Selector dropdown */}
-                <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "20px 24px", boxShadow: "var(--shadow)" }}>
-                  <label style={{ fontSize: "11px", fontWeight: "800", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-dim)", display: "block", marginBottom: "6px" }}>Select Dataset Instance (Built-in OR-Library Benchmark)</label>
-                  <p style={{ fontSize: "12px", color: "var(--text-dim)", marginBottom: "10px" }}>
-                    Optional — load a pre-built benchmark instance instead of using your manually added items above.
-                  </p>
-                  {loadingList ? (
-                    <span style={{ color: "var(--text-muted)", fontSize: "14px" }}>Loading instances...</span>
-                  ) : (
-                    <select
-                      style={{ width: "100%", padding: "12px", background: "var(--bg-input)", border: "1px solid var(--border)", borderRadius: "8px", color: "var(--text-main)", fontSize: "14px", fontWeight: "600", outline: "none" }}
-                      value={selected}
-                      onChange={(e) => {
-                        setSelected(e.target.value);
-                        setFinalResult(null);
-                        setPlacements(null);
-                        setChartData([]);
-                        setStats(null);
-                      }}
-                      disabled={running}
-                    >
-                      {Object.entries(groupedInstances).map(([setName, insts]) => (
-                        <optgroup key={setName} label={setName}>
-                          {insts.map((inst) => (
-                            <option key={inst.path} value={inst.path}>{inst.label}</option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom Status bar */}
-            <div style={{
-              background: "var(--bg-card)",
-              border: "1px solid var(--border)",
-              borderRadius: "12px",
-              padding: "16px 24px",
-              boxShadow: "var(--shadow)",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: "16px"
-            }}>
-              <div style={{ fontSize: "13px", color: "var(--text-dim)", display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
-                <span style={{ color: "var(--text-main)", fontWeight: "700" }}>{totalItemsCount}</span> items ready
-                <span style={{ color: "var(--text-dim)", opacity: 0.5, margin: "0 4px" }}>·</span>
-                Strategy: <span style={{ color: "var(--primary)", fontWeight: "700" }}>{strategy}</span>
-                <span style={{ color: "var(--text-dim)", opacity: 0.5, margin: "0 4px" }}>·</span>
-                Total: <span style={{ color: "var(--text-main)", fontWeight: "700" }}>{totalWeightSum.toLocaleString()} kg</span>
-              </div>
-              <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-                <button
-                  onClick={() => {
-                    setItemsList([]);
-                    setIsCustomized(true);
-                  }}
-                  style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontSize: "14px", fontWeight: "600", cursor: "pointer" }}
-                >
-                  Clear all
-                </button>
-                
-                {!running ? (
-                  <button
-                    onClick={handleStartRun}
-                    disabled={!canRun}
-                    style={{
-                      padding: "10px 24px",
-                      background: canRun ? "var(--primary)" : "var(--text-dim)",
-                      color: "#ffffff",
-                      border: "none",
-                      borderRadius: "6px",
-                      fontSize: "14px",
-                      fontWeight: "700",
-                      cursor: canRun ? "pointer" : "not-allowed",
-                      transition: "all 0.15s ease",
-                      whiteSpace: "nowrap"
-                    }}
-                  >
-                    Run optimizer
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      disabled
-                      style={{
-                        padding: "10px 24px",
-                        background: "var(--bg-input)",
-                        border: "1px solid var(--border)",
-                        color: "var(--text-muted)",
-                        borderRadius: "6px",
-                        fontSize: "14px",
-                        fontWeight: "700",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px"
-                      }}
-                    >
-                      <span style={{
-                        display: "inline-block",
-                        width: 14,
-                        height: 14,
-                        border: "2px solid var(--primary)",
-                        borderTopColor: "transparent",
-                        borderRadius: "50%",
-                        animation: "spin 0.8s linear infinite"
-                      }} />
-                      Running... {elapsed}s
-                    </button>
-                    <button
-                      onClick={handleStopRun}
-                      style={{
-                        padding: "10px 24px",
-                        background: "var(--red-light)",
-                        border: "1px solid var(--red)",
-                        color: "var(--red)",
-                        borderRadius: "6px",
-                        fontSize: "14px",
-                        fontWeight: "700",
-                        cursor: "pointer"
-                      }}
-                    >
-                      ■ Stop
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-=======
-          <LogisticsTab
-            containerSpecs={containerSpecs}
-            setContainerSpecs={setContainerSpecs}
-            maxLoad={maxLoad}
-            setMaxLoad={setMaxLoad}
-            strategy={strategy}
-            setStrategy={setStrategy}
-            wolfSize={wolfSize}
-            setWolfSize={setWolfSize}
-            maxIter={maxIter}
-            setMaxIter={setMaxIter}
-            fragilityConstraint={fragilityConstraint}
-            setFragilityConstraint={setFragilityConstraint}
-            rotationConstraint={rotationConstraint}
-            setRotationConstraint={setRotationConstraint}
-            lifoConstraint={lifoConstraint}
-            setLifoConstraint={setLifoConstraint}
-            itemsList={itemsList}
-            setItemsList={setItemsList}
-            setIsCustomized={setIsCustomized}
-            loadingList={loadingList}
-            selected={selected}
-            setSelected={setSelected}
-            groupedInstances={groupedInstances}
-            running={running}
-            elapsed={elapsed}
-            handleStartRun={handleStartRun}
-            handleStopRun={handleStopRun}
-            canRun={canRun}
-          />
->>>>>>> 6bb359140730094da211ea3c0c6d619c8cceb3a1
-        )}
-
-        {/* ── RESULTS TAB ────────────────────────────────────────────────────── */}
-        {activeTab === "results" && (
-          <ResultsTab
-            finalResult={finalResult}
-            runHistory={runHistory}
-            strategy={strategy}
-            stats={stats}
-            axisUtil={axisUtil}
-            chartData={chartData}
-            maxIter={maxIter}
-            handleExportResultsCSV={handleExportResultsCSV}
-            handleExportReport={handleExportReport}
-          />
-        )}
-
-        {/* ── VISUALIZATION TAB ──────────────────────────────────────────────── */}
-        {activeTab === "visualization" && (
-          <VisualizationTab
-            placements={placements}
-            itemsList={itemsList}
-            instanceInfo={instanceInfo}
-            binsUsed={binsUsed}
-            running={running}
-          />
-        )}
-
-        {/* ── RUN HISTORY TAB ────────────────────────────────────────────────── */}
-        {activeTab === "history" && (
-          <RunHistoryTab
-            runHistory={runHistory}
-            handleExportHistory={handleExportHistory}
-            onLoadVisualization={handleLoadVisualization}
-          />
-        )}
-
-      </main>
+    </main>
     </div>
   );
 }

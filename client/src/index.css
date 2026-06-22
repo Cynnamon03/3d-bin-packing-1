@@ -304,6 +304,15 @@ input:checked + .slider:before {
   text-align: center;
 }
 
+/* Add Box Form - centered labels and inputs */
+.add-box-form label {
+  text-align: center;
+}
+
+.add-box-form input,
+.add-box-form select {
+  text-align: center;
+}
 
 /* Custom Table Layout */
 .custom-table {
