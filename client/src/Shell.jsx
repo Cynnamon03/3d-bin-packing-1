@@ -1509,7 +1509,7 @@ export default function Shell() {
                         transition: "border-color 0.15s ease"
                       }}
                     >
-                      <option value="All">All ({uniqueStops.join(", ")})</option>
+                      <option value="All">All</option>
                       {uniqueStops.map(stop => (
                         <option key={stop} value={stop}>Stop {stop}</option>
                       ))}
