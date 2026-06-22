@@ -230,7 +230,7 @@ export default function BinViewer({ result, placements: placementsProp, containe
   const totalWidth  = binCount * L + (binCount - 1) * BIN_GAP;
   const camDist     = Math.max(totalWidth, H, D) * 1.8;
 
-  const target = useMemo(() => [totalWidth / 2, H / 2, D / 2], [totalWidth, H, D]);
+  const target = [totalWidth / 2, H / 2, D / 2];
 
   // Export PNG function
   const handleExportPNG = () => {
