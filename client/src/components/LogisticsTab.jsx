@@ -387,7 +387,8 @@ export default function LogisticsTab({
             </div>
 
             {/* Add box editor row */}
-            <form onSubmit={handleAddItem} style={{ display: "flex", gap: "8px", flexWrap: "wrap", background: "var(--bg-input)", padding: "12px", borderRadius: "8px", marginBottom: "16px", alignItems: "flex-end" }}>
+            {/* Add box editor row */}
+            <form onSubmit={handleAddItem} className="add-box-form" style={{ display: "flex", gap: "8px", flexWrap: "wrap", background: "var(--bg-input)", padding: "12px", borderRadius: "8px", marginBottom: "16px", alignItems: "flex-end" }}>
               <div style={{ flex: "2 1 120px" }}>
                 <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>Item ID</label>
                 <input type="text" value={newItemId} onChange={(e) => setNewItemId(e.target.value)} style={{ width: "100%", padding: "8px", border: "1px solid var(--border)", borderRadius: "4px", background: "var(--bg-card)", color: "var(--text-main)", fontSize: "13px", fontWeight: "600", outline: "none" }} />
@@ -396,24 +397,24 @@ export default function LogisticsTab({
                 <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>Stop</label>
                 <input type="number" min="1" value={newItemStop} onChange={(e) => setNewItemStop(e.target.value)} style={{ width: "100%", padding: "8px", border: "1px solid var(--border)", borderRadius: "4px", background: "var(--bg-card)", color: "var(--text-main)", fontSize: "13px", outline: "none" }} />
               </div>
-              <div style={{ flex: "1 1 50px" }}>
-                <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>W</label>
+              <div style={{ flex: "1 1 70px" }}>
+                <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>Width (CM)</label>
                 <input type="number" value={newItemL} onChange={(e) => setNewL(e.target.value)} style={{ width: "100%", padding: "8px", border: "1px solid var(--border)", borderRadius: "4px", background: "var(--bg-card)", color: "var(--text-main)", fontSize: "13px", outline: "none" }} />
               </div>
-              <div style={{ flex: "1 1 50px" }}>
-                <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>D</label>
+              <div style={{ flex: "1 1 70px" }}>
+                <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>Depth (CM)</label>
                 <input type="number" value={newItemD} onChange={(e) => setNewD(e.target.value)} style={{ width: "100%", padding: "8px", border: "1px solid var(--border)", borderRadius: "4px", background: "var(--bg-card)", color: "var(--text-main)", fontSize: "13px", outline: "none" }} />
               </div>
-              <div style={{ flex: "1 1 50px" }}>
-                <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>H</label>
+              <div style={{ flex: "1 1 70px" }}>
+                <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>Height (CM)</label>
                 <input type="number" value={newItemH} onChange={(e) => setNewH(e.target.value)} style={{ width: "100%", padding: "8px", border: "1px solid var(--border)", borderRadius: "4px", background: "var(--bg-card)", color: "var(--text-main)", fontSize: "13px", outline: "none" }} />
               </div>
               <div style={{ flex: "1 1 70px" }}>
-                <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>Wt (kg)</label>
+                <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>Weight (KG)</label>
                 <input type="number" value={newItemWeight} onChange={(e) => setNewWeight(e.target.value)} style={{ width: "100%", padding: "8px", border: "1px solid var(--border)", borderRadius: "4px", background: "var(--bg-card)", color: "var(--text-main)", fontSize: "13px", outline: "none" }} />
               </div>
               <div style={{ flex: "1 1 60px" }}>
-                <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>Qty</label>
+                <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>Quantity</label>
                 <input type="number" value={newItemQty} onChange={(e) => setNewQty(e.target.value)} style={{ width: "100%", padding: "8px", border: "1px solid var(--border)", borderRadius: "4px", background: "var(--bg-card)", color: "var(--text-main)", fontSize: "13px", outline: "none" }} />
               </div>
               <div style={{ flex: "2 1 100px" }}>
@@ -436,9 +437,9 @@ export default function LogisticsTab({
                   <tr>
                     <th>Item ID</th>
                     <th>Stop</th>
-                    <th>W (cm)</th>
-                    <th>D (cm)</th>
-                    <th>H (cm)</th>
+                    <th>Width (cm)</th>
+                    <th>Depth (cm)</th>
+                    <th>Height (cm)</th>
                     <th>Weight (kg)</th>
                     <th>Qty</th>
                     <th>Type</th>
@@ -478,7 +479,10 @@ export default function LogisticsTab({
 
           {/* Instance Selector dropdown */}
           <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "20px 24px", boxShadow: "var(--shadow)" }}>
-            <label style={{ fontSize: "11px", fontWeight: "800", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-dim)", display: "block", marginBottom: "6px" }}>Select Dataset Instance</label>
+            <label style={{ fontSize: "11px", fontWeight: "800", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-dim)", display: "block", marginBottom: "6px" }}>Select Dataset Instance (Built-in OR-Library Benchmark)</label>
+            <p style={{ fontSize: "12px", color: "var(--text-dim)", marginBottom: "10px" }}>
+              Optional — load a pre-built benchmark instance instead of using your manually added items above.
+            </p>
             {loadingList ? (
               <span style={{ color: "var(--text-muted)", fontSize: "14px" }}>Loading instances...</span>
             ) : (
