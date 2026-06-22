@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useAuth } from "./auth/AuthContext";
 import BinViewer from "./BinViewer";
+import logoImg from "./logo.png";
 
 // ── SVG Convergence Chart ─────────────────────────────────────────────────────
 const ConvergenceChart = React.memo(function ConvergenceChart({ data, lowerBound }) {
@@ -154,6 +155,12 @@ export default function Shell() {
 
   // Visualization Control states
   const [viewportOrientation, setViewportOrientation] = useState("3D");
+  const [viewportTrigger, setViewportTrigger] = useState(0);
+
+  const triggerViewReset = useCallback((dir) => {
+    setViewportOrientation(dir);
+    setViewportTrigger((prev) => prev + 1);
+  }, []);
   const [filterStandard, setFilterStandard] = useState(true);
   const [filterFragile, setFilterFragile] = useState(true);
   const [filterHeavy, setFilterHeavy] = useState(true);
@@ -619,22 +626,7 @@ export default function Shell() {
         zIndex: 100
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{
-            width: "36px",
-            height: "36px",
-            background: "var(--primary)",
-            borderRadius: "8px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#ffffff"
-          }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-              <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-              <line x1="12" y1="22.08" x2="12" y2="12" />
-            </svg>
-          </div>
+          <img src={logoImg} alt="STACKR Logo" style={{ width: "36px", height: "36px", borderRadius: "8px", objectFit: "contain" }} />
           <div>
             <h1 style={{ fontSize: "18px", fontWeight: "800", color: "var(--text-main)", letterSpacing: "-0.5px", lineHeight: 1.1 }}>STACKR</h1>
             <span style={{ fontSize: "11px", color: "var(--text-dim)", fontWeight: "600" }}>3D Bin Packing Optimizer</span>
@@ -1421,78 +1413,154 @@ export default function Shell() {
         {activeTab === "visualization" && (
           <div style={{ display: "flex", gap: "24px", flexWrap: "wrap", alignItems: "flex-start" }}>
             
-            {/* View controls panel on left */}
-            <div style={{ flex: "1 1 280px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
-              <h4 className="form-label" style={{ color: "var(--primary)", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "16px" }}>
-                ● VIEW CONTROLS
-              </h4>
+            {/* Sidebar Left Column Wrapper */}
+            <div style={{ flex: "1 1 280px", display: "flex", flexDirection: "column", gap: "20px" }}>
               
-              <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
-                {/* Rotate preset buttons */}
-                <div>
-                  <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>
-                    Rotate view
-                  </label>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}>
-                    {["Front", "Side", "Top", "3D"].map((dir) => (
-                      <button
-                        key={dir}
-                        onClick={() => setViewportOrientation(dir)}
-                        style={{
-                          padding: "8px",
-                          borderRadius: "4px",
-                          border: "1px solid var(--border)",
-                          background: viewportOrientation === dir ? "var(--primary)" : "var(--bg-input)",
-                          color: viewportOrientation === dir ? "#ffffff" : "var(--text-muted)",
-                          fontSize: "12px",
-                          fontWeight: "700",
-                          cursor: "pointer"
-                        }}
-                      >
-                        {dir}
-                      </button>
-                    ))}
+              {/* View controls panel */}
+              <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "24px", boxShadow: "var(--shadow)" }}>
+                <h4 className="form-label" style={{ color: "var(--primary)", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "16px" }}>
+                  ● VIEW CONTROLS
+                </h4>
+                
+                <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+                  {/* Rotate preset buttons */}
+                  <div>
+                    <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>
+                      Rotate view
+                    </label>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}>
+                      {["Front", "Side", "Top", "3D"].map((dir) => (
+                        <button
+                          key={dir}
+                          onClick={() => triggerViewReset(dir)}
+                          style={{
+                            padding: "8px",
+                            borderRadius: "4px",
+                            border: "1px solid var(--border)",
+                            background: viewportOrientation === dir ? "var(--primary)" : "var(--bg-input)",
+                            color: viewportOrientation === dir ? "#ffffff" : "var(--text-muted)",
+                            fontSize: "12px",
+                            fontWeight: "700",
+                            cursor: "pointer"
+                          }}
+                        >
+                          {dir}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
 
-                {/* Filter switches */}
-                <div>
-                  <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>
-                    Filter by type
-                  </label>
-                  <div className="switch-container">
-                    <span className="switch-label">Standard</span>
-                    <label className="switch">
-                      <input type="checkbox" checked={filterStandard} onChange={(e) => setFilterStandard(e.target.checked)} />
-                      <span className="slider" />
+                  {/* Filter switches */}
+                  <div>
+                    <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "8px" }}>
+                      Filter by type
                     </label>
+                    <div className="switch-container">
+                      <span className="switch-label">Standard</span>
+                      <label className="switch">
+                        <input type="checkbox" checked={filterStandard} onChange={(e) => setFilterStandard(e.target.checked)} />
+                        <span className="slider" />
+                      </label>
+                    </div>
+                    <div className="switch-container">
+                      <span className="switch-label">Fragile</span>
+                      <label className="switch">
+                        <input type="checkbox" checked={filterFragile} onChange={(e) => setFilterFragile(e.target.checked)} />
+                        <span className="slider" />
+                      </label>
+                    </div>
+                    <div className="switch-container">
+                      <span className="switch-label">Heavy</span>
+                      <label className="switch">
+                        <input type="checkbox" checked={filterHeavy} onChange={(e) => setFilterHeavy(e.target.checked)} />
+                        <span className="slider" />
+                      </label>
+                    </div>
                   </div>
-                  <div className="switch-container">
-                    <span className="switch-label">Fragile</span>
-                    <label className="switch">
-                      <input type="checkbox" checked={filterFragile} onChange={(e) => setFilterFragile(e.target.checked)} />
-                      <span className="slider" />
-                    </label>
-                  </div>
-                  <div className="switch-container">
-                    <span className="switch-label">Heavy</span>
-                    <label className="switch">
-                      <input type="checkbox" checked={filterHeavy} onChange={(e) => setFilterHeavy(e.target.checked)} />
-                      <span className="slider" />
-                    </label>
-                  </div>
-                </div>
 
-                {/* Labels switch */}
-                <div style={{ borderTop: "1px solid var(--border)", paddingTop: "12px" }}>
-                  <div className="switch-container">
-                    <span className="switch-label" style={{ fontWeight: "700" }}>Item IDs</span>
-                    <label className="switch">
-                      <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
-                      <span className="slider" />
-                    </label>
+                  {/* Labels switch */}
+                  <div style={{ borderTop: "1px solid var(--border)", paddingTop: "12px" }}>
+                    <div className="switch-container">
+                      <span className="switch-label" style={{ fontWeight: "700" }}>Item IDs</span>
+                      <label className="switch">
+                        <input type="checkbox" checked={showLabels} onChange={(e) => setShowLabels(e.target.checked)} />
+                        <span className="slider" />
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Stop Select Dropdown */}
+                  <div style={{ borderTop: "1px solid var(--border)", paddingTop: "14px" }}>
+                    <label className="form-label" style={{ display: "block", marginBottom: "6px", fontSize: "11px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase" }}>Stop</label>
+                    <select
+                      value={selectedStop}
+                      onChange={(e) => setSelectedStop(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        background: "var(--bg-input)",
+                        border: "1px solid var(--border)",
+                        borderRadius: "6px",
+                        color: "var(--text-main)",
+                        fontSize: "13px",
+                        fontWeight: "600",
+                        outline: "none",
+                        cursor: "pointer",
+                        transition: "border-color 0.15s ease"
+                      }}
+                    >
+                      <option value="All">All ({uniqueStops.join(", ")})</option>
+                      {uniqueStops.map(stop => (
+                        <option key={stop} value={stop}>Stop {stop}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
+              </div>
+
+              {/* Placement Details Card */}
+              <div style={{
+                background: "var(--bg-card)",
+                border: "1px solid var(--border)",
+                borderRadius: "12px",
+                padding: "24px",
+                boxShadow: "var(--shadow)",
+                minHeight: "180px",
+                display: "flex",
+                flexDirection: "column"
+              }}>
+                <h4 className="form-label" style={{ color: "var(--primary)", borderBottom: "1px solid var(--border)", paddingBottom: "8px", marginBottom: "16px", fontSize: "13px", fontWeight: "700" }}>
+                  ● PLACEMENT DETAILS
+                </h4>
+                {selectedItemInfo ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px", fontSize: "13px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "var(--text-dim)" }}>Name:</span>
+                      <span style={{ fontWeight: "700", color: "var(--text-main)" }}>{selectedItemInfo.id}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "var(--text-dim)" }}>Coordinates:</span>
+                      <span style={{ fontWeight: "700", color: "var(--text-main)" }}>({selectedItemInfo.x}, {selectedItemInfo.y}, {selectedItemInfo.z})</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "var(--text-dim)" }}>Size (W×D×H):</span>
+                      <span style={{ fontWeight: "700", color: "var(--text-main)" }}>{selectedItemInfo.l} × {selectedItemInfo.d} × {selectedItemInfo.h} cm</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "var(--text-dim)" }}>Stop:</span>
+                      <span style={{ fontWeight: "700", color: "var(--primary)" }}>Stop {selectedItemInfo.stop}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span style={{ color: "var(--text-dim)" }}>Weight:</span>
+                      <span style={{ fontWeight: "700", color: "var(--text-main)" }}>{selectedItemInfo.weight} kg</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, color: "var(--text-dim)", fontSize: "12px", textAlign: "center", border: "1px dashed var(--border)", borderRadius: "8px", padding: "16px" }}>
+                    <span style={{ fontSize: "16px" }}>🔍</span>
+                    <span style={{ marginTop: "6px" }}>Hover over a packed box to inspect details</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1513,7 +1581,9 @@ export default function Shell() {
                   showLabels={showLabels}
                   running={running}
                   orientation={viewportOrientation}
-                  onResetView={() => setViewportOrientation("3D")}
+                  resetTrigger={viewportTrigger}
+                  onResetView={() => triggerViewReset("3D")}
+                  onHoverItem={setSelectedItemInfo}
                 />
               ) : (
                 <div style={{ height: "450px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "var(--bg-input)", borderRadius: "8px", border: "1px solid var(--border)" }}>

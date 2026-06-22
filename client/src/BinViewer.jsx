@@ -16,9 +16,15 @@ function itemHSL(itemIdx) {
 
 // ── Container wireframe ───────────────────────────────────────────────────────
 const WireBox = React.memo(function WireBox({ x, y, z, l, h, d }) {
-  const geo = useMemo(() => new THREE.BoxGeometry(l, h, d), [l, h, d]);
+  const nx = Number(x || 0);
+  const ny = Number(y || 0);
+  const nz = Number(z || 0);
+  const nl = Number(l || 0);
+  const nh = Number(h || 0);
+  const nd = Number(d || 0);
+  const geo = useMemo(() => new THREE.BoxGeometry(nl, nh, nd), [nl, nh, nd]);
   return (
-    <lineSegments position={[x + l / 2, y + h / 2, z + d / 2]}>
+    <lineSegments position={[nx + nl / 2, ny + nh / 2, nz + nd / 2]}>
       <edgesGeometry args={[geo]} />
       <lineBasicMaterial color="white" transparent opacity={0.35} />
     </lineSegments>
@@ -26,12 +32,20 @@ const WireBox = React.memo(function WireBox({ x, y, z, l, h, d }) {
 });
 
 // ── Packed item: solid face + dark edge outline ───────────────────────────────
-const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, showLabels }) {
+const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, showLabels, onHover, onLeave }) {
   const [hovered, setHovered] = useState(false);
   const color   = useMemo(() => itemHSL(itemIdx), [itemIdx]);
-  const faceGeo = useMemo(() => new THREE.BoxGeometry(l - 1, h - 1, d - 1), [l, h, d]);
+  
+  const nx = Number(x || 0);
+  const ny = Number(y || 0);
+  const nz = Number(z || 0);
+  const nl = Number(l || 0);
+  const nh = Number(h || 0);
+  const nd = Number(d || 0);
+
+  const faceGeo = useMemo(() => new THREE.BoxGeometry(nl - 1, nh - 1, nd - 1), [nl, nh, nd]);
   const edgeGeo = useMemo(() => new THREE.EdgesGeometry(faceGeo), [faceGeo]);
-  const cx = x + l / 2, cy = y + h / 2, cz = z + d / 2;
+  const cx = nx + nl / 2, cy = ny + nh / 2, cz = nz + nd / 2;
   const boxId = id || `Box-${String(itemIdx + 1).padStart(3, '0')}`;
 
   return (
@@ -41,10 +55,12 @@ const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, sho
         onPointerOver={(e) => {
           e.stopPropagation();
           setHovered(true);
+          onHover();
         }}
         onPointerOut={(e) => {
           e.stopPropagation();
           setHovered(false);
+          onLeave();
         }}
       >
         <meshStandardMaterial
@@ -59,7 +75,7 @@ const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, sho
       </mesh>
       {(showLabels || hovered) && (
         <Html
-          position={[0, h / 2 + 2, 0]}
+          position={[0, nh / 2 + 2, 0]}
           center
           style={{
             background: 'rgba(15, 23, 42, 0.85)',
@@ -92,31 +108,67 @@ const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, sho
 });
 
 // ── Interactive Camera Controller ───────────────────────────────────────────
-function CameraController({ orientation, target, H, camDist }) {
-  const { camera } = useThree();
+function CameraController({ orientation, target, H, camDist, resetTrigger }) {
+  const { camera, controls } = useThree();
   useEffect(() => {
     if (!orientation) return;
+    const nH = Number(H || 0);
+    const nCamDist = Number(camDist || 0);
     if (orientation === "Front") {
-      camera.position.set(target[0], target[1], target[2] + camDist);
+      camera.position.set(target[0], target[1], target[2] + nCamDist);
     } else if (orientation === "Side") {
-      camera.position.set(target[0] + camDist, target[1], target[2]);
+      camera.position.set(target[0] + nCamDist, target[1], target[2]);
     } else if (orientation === "Top") {
-      camera.position.set(target[0], target[1] + camDist, target[2]);
+      camera.position.set(target[0], target[1] + nCamDist, target[2]);
     } else if (orientation === "3D") {
-      camera.position.set(target[0], target[1] + H * 0.8, target[2] + camDist);
+      camera.position.set(target[0] + nCamDist * 0.6, target[1] + nH * 1.0, target[2] + nCamDist * 0.8);
     }
     camera.lookAt(target[0], target[1], target[2]);
+    if (controls) {
+      controls.target.set(target[0], target[1], target[2]);
+      controls.update();
+    }
     camera.updateProjectionMatrix();
-  }, [orientation, target, H, camDist, camera]);
+  }, [orientation, target, H, camDist, camera, controls, resetTrigger]);
 
   return null;
 }
 
 // ── Main viewer ───────────────────────────────────────────────────────────────
-export default function BinViewer({ result, placements: placementsProp, container: containerProp, binsUsed: binsUsedProp, showLabels, running, orientation, onResetView }) {
-  const items     = result ? result.items      : (placementsProp || []);
-  const container = result ? result.container  : containerProp;
-  const binsUsed  = result ? result.bins_used  : (binsUsedProp || 0);
+export default function BinViewer({ result, placements: placementsProp, container: containerProp, binsUsed: binsUsedProp, showLabels, running, orientation, resetTrigger, onResetView, onHoverItem }) {
+  // Parse container specs to numbers
+  const container = useMemo(() => {
+    const raw = result ? result.container : containerProp;
+    if (!raw) return null;
+    return {
+      L: Number(raw.L || raw.Length || 0),
+      H: Number(raw.H || raw.Height || 0),
+      D: Number(raw.D || raw.Depth || 0),
+    };
+  }, [result, containerProp]);
+
+  // Parse placements to numbers to prevent string concatenation bugs
+  const items = useMemo(() => {
+    const rawItems = result ? result.items : (placementsProp || []);
+    return rawItems.map((it) => ({
+      ...it,
+      x: Number(it.x ?? 0),
+      y: Number(it.y ?? 0),
+      z: Number(it.z ?? 0),
+      l: Number(it.l ?? it.length ?? 0),
+      h: Number(it.h ?? it.height ?? 0),
+      d: Number(it.d ?? it.width ?? 0),
+      bin_id: Number(it.bin_id ?? 0),
+      item_idx: Number(it.item_idx ?? 0),
+      stop: it.stop !== undefined ? Number(it.stop) : undefined,
+      weight: it.weight !== undefined ? Number(it.weight) : undefined
+    }));
+  }, [result, placementsProp]);
+
+  const binsUsed = useMemo(() => {
+    const rawBins = result ? result.bins_used : (binsUsedProp || 0);
+    return Number(rawBins);
+  }, [result, binsUsedProp]);
 
   const [currentStep, setCurrentStep] = useState(items.length);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -156,8 +208,9 @@ export default function BinViewer({ result, placements: placementsProp, containe
   const byBin = useMemo(() => {
     const m = {};
     for (const it of visibleItems) {
-      if (!m[it.bin_id]) m[it.bin_id] = [];
-      m[it.bin_id].push(it);
+      const bid = it.bin_id;
+      if (!m[bid]) m[bid] = [];
+      m[bid].push(it);
     }
     return m;
   }, [visibleItems]);
@@ -166,13 +219,18 @@ export default function BinViewer({ result, placements: placementsProp, containe
 
   const { L, H, D } = container;
   const BIN_GAP     = L * 0.12;
-  const binCount    = Math.max(binsUsed, ...Object.keys(byBin).map(Number)) + 1 || binsUsed;
-  const totalWidth  = binCount * L + (binCount - 1) * BIN_GAP;
-  const camDist     = Math.max(totalWidth, H, D) * 1.25;
 
-  const targetX = totalWidth / 2;
-  const targetY = H / 2;
-  const targetZ = D / 2;
+  // Calculate bin count matching actual bins used and/or the highest bin_id present in placements
+  const binCount = Math.max(
+    1,
+    binsUsed,
+    Object.keys(byBin).length > 0 ? Math.max(...Object.keys(byBin).map(Number)) + 1 : 0
+  );
+
+  const totalWidth  = binCount * L + (binCount - 1) * BIN_GAP;
+  const camDist     = Math.max(totalWidth, H, D) * 1.8;
+
+  const target = useMemo(() => [totalWidth / 2, H / 2, D / 2], [totalWidth, H, D]);
 
   // Export PNG function
   const handleExportPNG = () => {
@@ -189,12 +247,12 @@ export default function BinViewer({ result, placements: placementsProp, containe
       <div style={{ width: '100%', height: 520, background: '#111827', position: 'relative' }}>
         <Canvas
           ref={canvasRef}
-          camera={{ position: [targetX, targetY + H * 0.8, targetZ + camDist], fov: 45 }}
+          camera={{ position: [target[0], target[1] + H * 0.8, target[2] + camDist], fov: 30 }}
           gl={{ antialias: true, preserveDrawingBuffer: true }}
         >
           <ambientLight intensity={0.65} />
-          <directionalLight position={[200, 400, 300]} intensity={0.8} />
-          <directionalLight position={[-200, 100, -200]} intensity={0.3} />
+          <directionalLight position={[totalWidth * 0.5, H * 2, D * 1.5]} intensity={0.8} />
+          <directionalLight position={[-totalWidth * 0.5, H * 0.5, -D * 1.0]} intensity={0.3} />
 
           {Array.from({ length: binCount }, (_, binId) => {
             const offsetX  = binId * (L + BIN_GAP);
@@ -210,14 +268,26 @@ export default function BinViewer({ result, placements: placementsProp, containe
                     itemIdx={it.item_idx}
                     id={it.id}
                     showLabels={showLabels}
+                    onHover={() => onHoverItem && onHoverItem({
+                      id: it.id,
+                      x: it.x,
+                      y: it.y,
+                      z: it.z,
+                      l: it.l,
+                      h: it.h,
+                      d: it.d,
+                      stop: it.stop || 1,
+                      weight: it.weight || 0
+                    })}
+                    onLeave={() => onHoverItem && onHoverItem(null)}
                   />
                 ))}
               </group>
             );
           })}
 
-          <CameraController orientation={orientation} target={[targetX, targetY, targetZ]} H={H} camDist={camDist} />
-          <OrbitControls makeDefault target={[targetX, targetY, targetZ]} />
+          <CameraController orientation={orientation} target={target} H={H} camDist={camDist} resetTrigger={resetTrigger} />
+          <OrbitControls makeDefault target={target} />
         </Canvas>
 
         {/* Playback Controls Overlay */}
