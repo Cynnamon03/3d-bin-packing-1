@@ -187,7 +187,7 @@ export default function LogisticsTab({
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               <div>
                 <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>
-                  Dimensions (cm) — W × D × H
+                  Dimensions (cm) — Weight × Depth × Height
                 </label>
                 <div style={{ display: "flex", gap: "8px" }}>
                   {["L", "D", "H"].map((dim) => (
@@ -362,11 +362,11 @@ export default function LogisticsTab({
                 {[
                   { label: "Item ID", flex: "2 1 120px", value: newItemId, set: setNewItemId, type: "text" },
                   { label: "Stop", flex: "1 1 60px", value: newItemStop, set: setNewItemStop, type: "number", min: 1 },
-                  { label: "W", flex: "1 1 50px", value: newItemL, set: setNewL, type: "number" },
-                  { label: "D", flex: "1 1 50px", value: newItemD, set: setNewD, type: "number" },
-                  { label: "H", flex: "1 1 50px", value: newItemH, set: setNewH, type: "number" },
-                  { label: "Wt (kg)", flex: "1 1 70px", value: newItemWeight, set: setNewWeight, type: "number" },
-                  { label: "Qty", flex: "1 1 60px", value: newItemQty, set: setNewQty, type: "number" }
+                  { label: "Width (cm)", flex: "1 1 50px", value: newItemL, set: setNewL, type: "number" },
+                  { label: "Depth (cm)", flex: "1 1 50px", value: newItemD, set: setNewD, type: "number" },
+                  { label: "Height (cm)", flex: "1 1 50px", value: newItemH, set: setNewH, type: "number" },
+                  { label: "Weight (kg)", flex: "1 1 70px", value: newItemWeight, set: setNewWeight, type: "number" },
+                  { label: "Quantity", flex: "1 1 60px", value: newItemQty, set: setNewQty, type: "number" }
                 ].map(({ label, flex, value, set, type, min }) => (
                   <div key={label} style={{ flex }}>
                     <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-dim)", textTransform: "uppercase", display: "block", marginBottom: "4px" }}>{label}</label>
@@ -404,7 +404,7 @@ export default function LogisticsTab({
                   <table className="custom-table">
                     <thead>
                       <tr>
-                        <th>Item ID</th><th>Stop</th><th>W (cm)</th><th>D (cm)</th><th>H (cm)</th><th>Weight (kg)</th><th>Qty</th><th>Type</th><th style={{ width: "60px" }}></th>
+                        <th>Item ID</th><th>Stop</th><th>Width (cm)</th><th>Depth (cm)</th><th>Height (cm)</th><th>Weight (kg)</th><th>Quantity</th><th>Type</th><th style={{ width: "60px" }}></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -505,7 +505,7 @@ export default function LogisticsTab({
                     <table className="custom-table">
                       <thead>
                         <tr>
-                          <th>Item ID</th><th>Stop</th><th>W (cm)</th><th>D (cm)</th><th>H (cm)</th><th>Weight (kg)</th><th>Qty</th><th>Type</th>
+                          <th>Item ID</th><th>Stop</th><th>Width (cm)</th><th>Depth (cm)</th><th>Height (cm)</th><th>Weight (kg)</th><th>Quantity</th><th>Type</th>
                         </tr>
                       </thead>
                       <tbody>
