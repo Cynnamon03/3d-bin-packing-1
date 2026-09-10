@@ -60,6 +60,9 @@ class HDGWO:
                 "x": x, "y": y, "z": z,
                 "l": l, "h": h, "d": d,
                 "length": l, "height": h, "width": d,
+                "stop":     self.items[item_idx].get('stop', 1),
+                "type":     self.items[item_idx].get('type', 'Standard'),
+                "weight":   self.items[item_idx].get('weight', 0),
             })
         result.sort(key=lambda p: (p["bin_id"], p["z"], p["y"], p["x"]))
         return result

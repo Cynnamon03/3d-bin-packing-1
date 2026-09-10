@@ -1,22 +1,10 @@
 /**
  * BinViewer.jsx
  * Live 3-D packing visualiser using React Three Fiber.
- *
- * Accepts two equivalent prop shapes:
- *   (A) placements={[{item_idx, bin_id, x, y, z, l, h, d}]}
- *       container={{ L, H, D }}
- *       binsUsed={number}
- *
- *   (B) result={{ items:[...], container:{L,H,D}, bins_used:n }}
- *       (legacy – kept for backward compatibility)
- *
- * Colouring: golden-angle HSL hue per item_idx so every item is visually
- * distinct, even when items of the same type share a bin.
- * Each item gets a thin dark wireframe edge so boxes pop.
  */
 
-import React, { useMemo, useState, useEffect } from 'react';
-import { Canvas } from '@react-three/fiber';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Html } from '@react-three/drei';
 import * as THREE from 'three';
 
@@ -26,24 +14,83 @@ function itemHSL(itemIdx) {
   return `hsl(${hue.toFixed(1)}, 70%, 60%)`;
 }
 
-// ── Container wireframe ───────────────────────────────────────────────────────
+// ── Container wireframe & visual shell ───────────────────────────────────────
 const WireBox = React.memo(function WireBox({ x, y, z, l, h, d }) {
-  const geo = useMemo(() => new THREE.BoxGeometry(l, h, d), [l, h, d]);
+  const nx = Number(x || 0);
+  const ny = Number(y || 0);
+  const nz = Number(z || 0);
+  const nl = Number(l || 0);
+  const nh = Number(h || 0);
+  const nd = Number(d || 0);
+  
+  const geo = useMemo(() => new THREE.BoxGeometry(nl, nh, nd), [nl, nh, nd]);
+  const cx = nx + nl / 2;
+  const cy = ny + nh / 2;
+  const cz = nz + nd / 2;
+
   return (
-    <lineSegments position={[x + l / 2, y + h / 2, z + d / 2]}>
-      <edgesGeometry args={[geo]} />
-      <lineBasicMaterial color="white" transparent opacity={0.35} />
-    </lineSegments>
+    <group>
+      {/* Sleek outer wireframe outline */}
+      <lineSegments position={[cx, cy, cz]}>
+        <edgesGeometry args={[geo]} />
+        <lineBasicMaterial color="#3b82f6" transparent opacity={0.5} />
+      </lineSegments>
+
+      {/* Semi-transparent bottom floor with subtle grid look */}
+      <mesh position={[cx, ny, cz]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[nl, nd]} />
+        <meshStandardMaterial
+          color="#1e293b"
+          transparent
+          opacity={0.35}
+          roughness={0.4}
+          metalness={0.1}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* Semi-transparent back wall */}
+      <mesh position={[cx, cy, nz]}>
+        <planeGeometry args={[nl, nh]} />
+        <meshStandardMaterial
+          color="#111827"
+          transparent
+          opacity={0.2}
+          roughness={0.6}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+
+      {/* Semi-transparent left wall */}
+      <mesh position={[nx, cy, cz]} rotation={[0, Math.PI / 2, 0]}>
+        <planeGeometry args={[nd, nh]} />
+        <meshStandardMaterial
+          color="#111827"
+          transparent
+          opacity={0.2}
+          roughness={0.6}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+    </group>
   );
 });
 
 // ── Packed item: solid face + dark edge outline ───────────────────────────────
-const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, showLabels }) {
+const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, showLabels, onHover, onLeave }) {
   const [hovered, setHovered] = useState(false);
   const color   = useMemo(() => itemHSL(itemIdx), [itemIdx]);
-  const faceGeo = useMemo(() => new THREE.BoxGeometry(l - 1, h - 1, d - 1), [l, h, d]);
+  
+  const nx = Number(x || 0);
+  const ny = Number(y || 0);
+  const nz = Number(z || 0);
+  const nl = Number(l || 0);
+  const nh = Number(h || 0);
+  const nd = Number(d || 0);
+
+  const faceGeo = useMemo(() => new THREE.BoxGeometry(nl - 1, nh - 1, nd - 1), [nl, nh, nd]);
   const edgeGeo = useMemo(() => new THREE.EdgesGeometry(faceGeo), [faceGeo]);
-  const cx = x + l / 2, cy = y + h / 2, cz = z + d / 2;
+  const cx = nx + nl / 2, cy = ny + nh / 2, cz = nz + nd / 2;
   const boxId = id || `Box-${String(itemIdx + 1).padStart(3, '0')}`;
 
   return (
@@ -53,10 +100,12 @@ const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, sho
         onPointerOver={(e) => {
           e.stopPropagation();
           setHovered(true);
+          onHover();
         }}
         onPointerOut={(e) => {
           e.stopPropagation();
           setHovered(false);
+          onLeave();
         }}
       >
         <meshStandardMaterial
@@ -71,7 +120,7 @@ const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, sho
       </mesh>
       {(showLabels || hovered) && (
         <Html
-          position={[0, h / 2 + 2, 0]}
+          position={[0, nh / 2 + 2, 0]}
           center
           style={{
             background: 'rgba(15, 23, 42, 0.85)',
@@ -103,33 +152,101 @@ const ItemBox = React.memo(function ItemBox({ x, y, z, l, h, d, itemIdx, id, sho
   );
 });
 
+// ── Interactive Camera Controller ───────────────────────────────────────────
+function CameraController({ orientation, target, H, camDist, resetTrigger }) {
+  const { camera, controls } = useThree();
+  const lastTriggerRef = useRef(-1);
+
+  useEffect(() => {
+    if (resetTrigger === lastTriggerRef.current) return;
+    lastTriggerRef.current = resetTrigger;
+
+    if (!orientation) return;
+    const nH = Number(H || 0);
+    const nCamDist = Number(camDist || 0);
+    
+    // Set camera up vector based on orientation to prevent gimbal lock in Top view
+    if (orientation === "Top") {
+      camera.up.set(0, 0, -1);
+    } else {
+      camera.up.set(0, 1, 0);
+    }
+
+    if (orientation === "Front") {
+      camera.position.set(target[0], target[1], target[2] + nCamDist);
+    } else if (orientation === "Side") {
+      camera.position.set(target[0] + nCamDist, target[1], target[2]);
+    } else if (orientation === "Top") {
+      camera.position.set(target[0], target[1] + nCamDist, target[2]);
+    } else if (orientation === "3D") {
+      camera.position.set(target[0] + nCamDist * 0.6, target[1] + nH * 1.0, target[2] + nCamDist * 0.8);
+    }
+    camera.lookAt(target[0], target[1], target[2]);
+    if (controls) {
+      controls.target.set(target[0], target[1], target[2]);
+      controls.update();
+    }
+    camera.updateProjectionMatrix();
+  }, [orientation, target, H, camDist, camera, controls, resetTrigger]);
+
+  return null;
+}
+
 // ── Main viewer ───────────────────────────────────────────────────────────────
-export default function BinViewer({ result, placements: placementsProp, container: containerProp, binsUsed: binsUsedProp, showLabels, running }) {
-  // Normalise to a single internal format
-  const items     = result ? result.items      : (placementsProp || []);
-  const container = result ? result.container  : containerProp;
-  const binsUsed  = result ? result.bins_used  : (binsUsedProp || 0);
+export default function BinViewer({ result, placements: placementsProp, container: containerProp, binsUsed: binsUsedProp, showLabels, running, orientation, resetTrigger, onResetView, onHoverItem, onInteract }) {
+  // Parse container specs to numbers
+  const container = useMemo(() => {
+    const raw = result ? result.container : containerProp;
+    if (!raw) return null;
+    return {
+      L: Number(raw.L || raw.Length || 0),
+      H: Number(raw.H || raw.Height || 0),
+      D: Number(raw.D || raw.Depth || 0),
+    };
+  }, [result, containerProp]);
+
+  // Parse placements to numbers to prevent string concatenation bugs
+  const items = useMemo(() => {
+    const rawItems = result ? result.items : (placementsProp || []);
+    return rawItems.map((it) => ({
+      ...it,
+      x: Number(it.x ?? 0),
+      y: Number(it.y ?? 0),
+      z: Number(it.z ?? 0),
+      l: Number(it.l ?? it.length ?? 0),
+      h: Number(it.h ?? it.height ?? 0),
+      d: Number(it.d ?? it.width ?? 0),
+      bin_id: Number(it.bin_id ?? 0),
+      item_idx: Number(it.item_idx ?? 0),
+      stop: it.stop !== undefined ? Number(it.stop) : undefined,
+      weight: it.weight !== undefined ? Number(it.weight) : undefined
+    }));
+  }, [result, placementsProp]);
+
+  const binsUsed = useMemo(() => {
+    const rawBins = result ? result.bins_used : (binsUsedProp || 0);
+    return Number(rawBins);
+  }, [result, binsUsedProp]);
 
   const [currentStep, setCurrentStep] = useState(items.length);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1.0); // Speed multiplier: 0.5, 1.0, 2.0
+  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const [isLooping, setIsLooping] = useState(false);
 
-  // Sync currentStep when items count changes (e.g. running new optimization or finishing)
+  const canvasRef = useRef(null);
+
   useEffect(() => {
     setCurrentStep(items.length);
   }, [items.length]);
 
-  // Autoplay handler
   useEffect(() => {
     if (!isPlaying) return;
-
     const intervalDelay = Math.round(500 / playbackSpeed);
     const interval = setInterval(() => {
       setCurrentStep((prev) => {
         if (prev >= items.length) {
           if (isLooping) {
-            return 0; // Restart animation from beginning
+            return 0;
           } else {
             setIsPlaying(false);
             return prev;
@@ -142,46 +259,65 @@ export default function BinViewer({ result, placements: placementsProp, containe
     return () => clearInterval(interval);
   }, [isPlaying, items.length, playbackSpeed, isLooping]);
 
-  // Slice items to current playback step
   const visibleItems = useMemo(() => {
     return items.slice(0, currentStep);
   }, [items, currentStep]);
 
-  // Group items by bin — hook must come before any early return
   const byBin = useMemo(() => {
     const m = {};
     for (const it of visibleItems) {
-      if (!m[it.bin_id]) m[it.bin_id] = [];
-      m[it.bin_id].push(it);
+      const bid = it.bin_id;
+      if (!m[bid]) m[bid] = [];
+      m[bid].push(it);
     }
     return m;
   }, [visibleItems]);
 
+  const { L = 0, H = 0, D = 0 } = container || {};
+  const BIN_GAP     = L * 0.12;
+
+  // Calculate bin count matching actual bins used and/or the highest bin_id present in placements
+  const binCount = Math.max(
+    1,
+    binsUsed,
+    Object.keys(byBin).length > 0 ? Math.max(...Object.keys(byBin).map(Number)) + 1 : 0
+  );
+
+  const totalWidth  = binCount * L + (binCount - 1) * BIN_GAP;
+  const camDist     = Math.max(totalWidth, H, D) * 1.8;
+
+  const target = [totalWidth / 2, H / 2, D / 2];
+
+  const cameraConfig = useMemo(() => ({
+    position: [target[0], target[1] + H * 0.8, target[2] + camDist],
+    fov: 30,
+    near: 1,
+    far: Math.max(10000, camDist * 10)
+  }), [target, H, camDist]);
+
   if (!container || !items || items.length === 0) return null;
 
-  const { L, H, D } = container;
-  const BIN_GAP     = L * 0.12;
-  const binCount    = Math.max(binsUsed, ...Object.keys(byBin).map(Number)) + 1 || binsUsed;
-  const totalWidth  = binCount * L + (binCount - 1) * BIN_GAP;
-  const camDist     = Math.max(totalWidth, H, D) * 1.25;
-
-  const targetX = totalWidth / 2;
-  const targetY = H / 2;
-  const targetZ = D / 2;
-
-  // Enable labels globally when showLabels option is turned on
-  const enableLabels = showLabels;
+  // Export PNG function
+  const handleExportPNG = () => {
+    if (!canvasRef.current) return;
+    const dataURL = canvasRef.current.toDataURL("image/png");
+    const link = document.createElement("a");
+    link.download = `STACKR-3D-Packing-Bin.png`;
+    link.href = dataURL;
+    link.click();
+  };
 
   return (
     <div style={{ width: '100%', borderRadius: 8, overflow: 'hidden' }}>
       <div style={{ width: '100%', height: 520, background: '#111827', position: 'relative' }}>
         <Canvas
-          camera={{ position: [targetX, targetY + H * 0.8, targetZ + camDist], fov: 45 }}
-          gl={{ antialias: true }}
+          ref={canvasRef}
+          camera={cameraConfig}
+          gl={{ antialias: true, preserveDrawingBuffer: true }}
         >
           <ambientLight intensity={0.65} />
-          <directionalLight position={[200, 400, 300]} intensity={0.8} />
-          <directionalLight position={[-200, 100, -200]} intensity={0.3} />
+          <directionalLight position={[totalWidth * 0.5, H * 2, D * 1.5]} intensity={0.8} />
+          <directionalLight position={[-totalWidth * 0.5, H * 0.5, -D * 1.0]} intensity={0.3} />
 
           {Array.from({ length: binCount }, (_, binId) => {
             const offsetX  = binId * (L + BIN_GAP);
@@ -196,14 +332,27 @@ export default function BinViewer({ result, placements: placementsProp, containe
                     l={it.l} h={it.h} d={it.d}
                     itemIdx={it.item_idx}
                     id={it.id}
-                    showLabels={enableLabels}
+                    showLabels={showLabels}
+                    onHover={() => onHoverItem && onHoverItem({
+                      id: it.id,
+                      x: it.x,
+                      y: it.y,
+                      z: it.z,
+                      l: it.l,
+                      h: it.h,
+                      d: it.d,
+                      stop: it.stop || 1,
+                      weight: it.weight || 0
+                    })}
+                    onLeave={() => onHoverItem && onHoverItem(null)}
                   />
                 ))}
               </group>
             );
           })}
 
-          <OrbitControls makeDefault target={[targetX, targetY, targetZ]} />
+          <CameraController orientation={orientation} target={target} H={H} camDist={camDist} resetTrigger={resetTrigger} />
+          <OrbitControls makeDefault target={target} onStart={onInteract} />
         </Canvas>
 
         {/* Playback Controls Overlay */}
@@ -264,7 +413,6 @@ export default function BinViewer({ result, placements: placementsProp, containe
             }}>
               {/* Loop & Speed Options (Left) */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {/* Loop Toggle */}
                 <button
                   onClick={() => setIsLooping(prev => !prev)}
                   style={{
@@ -282,7 +430,6 @@ export default function BinViewer({ result, placements: placementsProp, containe
                   🔁 {isLooping ? 'Loop: On' : 'Loop: Off'}
                 </button>
 
-                {/* Speed Selector */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#475569', borderRadius: 4, padding: '0 6px' }}>
                   <span style={{ color: '#cbd5e1', fontSize: 11, fontWeight: 'bold' }}>Speed:</span>
                   <select
@@ -310,7 +457,6 @@ export default function BinViewer({ result, placements: placementsProp, containe
 
               {/* Playback Navigation Buttons (Middle) */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {/* Step Backward Button */}
                 <button
                   onClick={() => {
                     setIsPlaying(false);
@@ -333,7 +479,6 @@ export default function BinViewer({ result, placements: placementsProp, containe
                   ⏮
                 </button>
 
-                {/* Play/Pause Button */}
                 <button
                   onClick={() => {
                     if (currentStep >= items.length) {
@@ -356,7 +501,6 @@ export default function BinViewer({ result, placements: placementsProp, containe
                   {isPlaying ? '⏸ Pause' : '▶ Play'}
                 </button>
 
-                {/* Step Forward Button */}
                 <button
                   onClick={() => {
                     setIsPlaying(false);
@@ -380,7 +524,6 @@ export default function BinViewer({ result, placements: placementsProp, containe
                 </button>
               </div>
 
-              {/* Counter Text (Right) */}
               <span style={{ color: '#f1f5f9', fontSize: 12, whiteSpace: 'nowrap', fontWeight: 600 }}>
                 Showing {currentStep} of {items.length}
               </span>
@@ -389,28 +532,43 @@ export default function BinViewer({ result, placements: placementsProp, containe
         )}
       </div>
 
-      {/* Legend */}
+      {/* Legend & Action Triggers at bottom of viewport */}
       <div style={{
-        display: 'flex', gap: 14, padding: '8px 16px',
-        background: '#1f2937', flexWrap: 'wrap', alignItems: 'center',
+        display: 'flex', justifyContent: 'space-between', padding: '12px 16px',
+        background: '#1f2937', flexWrap: 'wrap', alignItems: 'center', gap: 14
       }}>
-        <span style={{ color: '#94a3b8', fontSize: 13 }}>
-          {binCount} bin{binCount !== 1 ? 's' : ''} · {items.length} items
-        </span>
-        {Array.from({ length: Math.min(binCount, 8) }, (_, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <div style={{
-              width: 12, height: 12, borderRadius: 2, border: '1px solid #374151',
-              background: `hsl(${((byBin[i]?.[0]?.item_idx ?? i) * 137.508 % 360).toFixed(0)}, 70%, 60%)`,
-            }} />
-            <span style={{ color: '#9ca3af', fontSize: 12 }}>
-              Bin {i} ({(byBin[i] || []).length})
-            </span>
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ color: '#94a3b8', fontSize: 13, fontWeight: '600' }}>
+            {binCount} bin{binCount !== 1 ? 's' : ''} · {items.length} items
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ width: 12, height: 12, borderRadius: 2, background: '#3b82f6' }} />
+            <span style={{ color: '#9ca3af', fontSize: 12 }}>Standard</span>
           </div>
-        ))}
-        {binCount > 8 && (
-          <span style={{ color: '#6b7280', fontSize: 12 }}>+ {binCount - 8} more</span>
-        )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ width: 12, height: 12, borderRadius: 2, background: '#f59e0b' }} />
+            <span style={{ color: '#9ca3af', fontSize: 12 }}>Fragile</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ width: 12, height: 12, borderRadius: 2, background: '#ef4444' }} />
+            <span style={{ color: '#9ca3af', fontSize: 12 }}>Heavy</span>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button
+            onClick={handleExportPNG}
+            style={{ padding: "6px 12px", background: "transparent", border: "1px solid #4b5563", borderRadius: "4px", color: "#cbd5e1", fontSize: "12px", fontWeight: "700", cursor: "pointer" }}
+          >
+            Export PNG
+          </button>
+          <button
+            onClick={onResetView}
+            style={{ padding: "6px 12px", background: "transparent", border: "1px solid #4b5563", borderRadius: "4px", color: "#cbd5e1", fontSize: "12px", fontWeight: "700", cursor: "pointer" }}
+          >
+            Reset view
+          </button>
+        </div>
       </div>
     </div>
   );

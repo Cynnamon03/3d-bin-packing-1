@@ -67,15 +67,21 @@ def load_instance(json_path):
             orients = [(L_val, H_val, D_val)]
 
         for _ in range(demand):
-            items.append({
+            item_entry = {
                 'id': f"Box-{box_counter:03d}",
                 'L': L_val,
                 'H': H_val,
                 'D': D_val,
                 'can_rotate': can_rotate,
                 'orientations': orients,
-                'stop': 1,   # single-stop default; extend for LIFO later
-            })
+                'stop': int(item_def.get('Stop') or item_def.get('stop') or 1),
+                'type': item_def.get('Type') or item_def.get('type') or 'Standard',
+            }
+            w_val = item_def.get('Weight') or item_def.get('weight')
+            if w_val is not None:
+                item_entry['weight'] = float(w_val)
+            
+            items.append(item_entry)
             box_counter += 1
 
     return container, items

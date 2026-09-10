@@ -126,6 +126,9 @@ def main():
             "orig_L": items[item_idx]['L'],
             "orig_H": items[item_idx]['H'],
             "orig_D": items[item_idx]['D'],
+            "stop":     items[item_idx].get('stop', 1),
+            "type":     items[item_idx].get('type', 'Standard'),
+            "weight":   items[item_idx].get('weight', 0),
         })
     packed_items.sort(key=lambda p: (p["bin_id"], p["z"], p["y"], p["x"]))
 
