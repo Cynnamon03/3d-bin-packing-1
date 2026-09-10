@@ -3,6 +3,7 @@ import React, {
 } from 'react';
 import BinViewer from './BinViewer';
 
+
 // ── Global styles injected once ───────────────────────────────────────────────
 const GLOBAL_CSS = `
   @keyframes spin { to { transform: rotate(360deg); } }
