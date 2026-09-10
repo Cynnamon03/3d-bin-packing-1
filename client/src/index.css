@@ -6,11 +6,11 @@
   --bg-card: #ffffff;
   --bg-input: #fff0f6;
   --border: #ffd6e8;
-  --text-main: #3a003a;
-  --text-muted: #6b2050;
-  --text-dim: #ab47bc;
-  --primary: #c2185b;
-  --primary-hover: #7b1fa2;
+  --text-main: #12003a;
+  --text-muted: #22226f;
+  --text-dim: #14326e;
+  --primary: #1f46e1;
+  --primary-hover: #231fa2;
   --primary-light: #ede7f6;
   --green: #10b981;
   --green-light: #ecfdf5;
@@ -67,7 +67,7 @@
 
 body {
   font-family: 'DM Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
-  background: linear-gradient(135deg, #ffadd2 0%, #f48fb1 30%, #ce93d8 70%, #b388d9 100%);
+  background: linear-gradient(135deg, #5878e3 0%, #1a1a97 30%, #2d43e3 70%, #4b90ff 100%);
   color: var(--text-main);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -415,7 +415,7 @@ input:checked + .slider:before {
 
 /* Preview Box (Dashed Container) */
 .dashed-preview {
-  border: 2px dashed #ffadd2;
+  border: 2px dashed #173f9c;
   background-color: #fff0f6;
   border-radius: var(--radius);
   padding: 20px;
